@@ -380,8 +380,8 @@ jobs:
               </Directory>
             </Directory>
             
-            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-              <Component Id="MainExecutable" Guid="*">
+            <ComponentGroup Id="ProductComponents">
+              <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
                 <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
                 <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
               </Component>
