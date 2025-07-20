@@ -394,10 +394,6 @@ jobs:
             </ComponentGroup>
             
             <Icon Id="AppIcon.exe" SourceFile="spotify-shuffle.exe" />
-            
-            <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-            <UIRef Id="WixUI_InstallDir" />
-            <UIRef Id="WixUI_ErrorProgressText" />
           </Product>
         </Wix>
         "@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
