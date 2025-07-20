@@ -352,6 +352,12 @@ jobs:
         mkdir packaging\msi
         copy build\spotify-shuffle${{ matrix.suffix }} packaging\msi\spotify-shuffle.exe
         
+        # Create a batch file wrapper for easier access
+        @'
+        @echo off
+        "%~dp0spotify-shuffle.exe" %*
+        '@ | Out-File -FilePath packaging\msi\spotify-shuffle.bat -Encoding ascii
+        
         # Create WiX source file with enhanced metadata and proper component structure
         $version = "${{ needs.tag.outputs.version }}".TrimStart('v')
         @"
@@ -359,7 +365,7 @@ jobs:
         <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
           <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="$version" 
                    Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
-            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" 
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perUser" 
                      Description="CLI tool for managing Spotify playlists"
                      Comments="Fast, cross-platform CLI tool for Spotify playlist management"
                      Keywords="Spotify,Playlist,Music,CLI,Shuffle" />
@@ -372,7 +378,7 @@ jobs:
             </Feature>
             
             <Directory Id="TARGETDIR" Name="SourceDir">
-              <Directory Id="ProgramFilesFolder">
+              <Directory Id="LocalAppDataFolder">
                 <Directory Id="INSTALLFOLDER" Name="Spotify Shuffle" />
               </Directory>
               <Directory Id="ProgramMenuFolder">
@@ -383,10 +389,12 @@ jobs:
             <ComponentGroup Id="ProductComponents">
               <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
                 <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
+                <File Id="SpotifyShuffleBAT" Source="spotify-shuffle.bat" />
               </Component>
               <Component Id="PathComponent" Guid="*" Directory="INSTALLFOLDER">
-                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="yes" />
-                <RegistryValue Root="HKLM" Key="Software\SpotifyShuffleGo" Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+                <!-- User PATH - more reliable for per-user installations -->
+                <Environment Id="UserPATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="no" />
+                <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
               </Component>
               <Component Id="StartMenuComponent" Guid="*" Directory="ApplicationProgramsFolder">
                 <Shortcut Id="StartMenuShortcut" Name="Spotify Shuffle" 
