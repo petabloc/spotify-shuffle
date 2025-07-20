@@ -18,7 +18,7 @@ jobs:
         go-version: '1.21'
     
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -73,7 +73,7 @@ jobs:
         go-version: '1.21'
     
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -93,7 +93,7 @@ jobs:
         go build -ldflags "-s -w -X main.version=${GITHUB_SHA::8}" -o build/spotify-shuffle${{ matrix.suffix }} .
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: spotify-shuffle${{ matrix.suffix }}
         path: build/spotify-shuffle${{ matrix.suffix }}
