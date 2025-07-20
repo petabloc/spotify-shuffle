@@ -352,7 +352,7 @@ jobs:
         mkdir packaging\msi
         copy build\spotify-shuffle${{ matrix.suffix }} packaging\msi\spotify-shuffle.exe
         
-        # Create WiX source file with enhanced metadata
+        # Create WiX source file with enhanced metadata and proper component structure
         $version = "${{ needs.tag.outputs.version }}".TrimStart('v')
         @"
         <?xml version="1.0" encoding="UTF-8"?>
