@@ -9,31 +9,17 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
+  get-version:
     runs-on: ubuntu-latest
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
       tag_name: ${{ steps.get_version.outputs.tag_name }}
     steps:
-    - uses: actions/checkout@v4
-    
     - name: Get version
       id: get_version
       run: echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-    
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.get_version.outputs.tag_name }}
-        release_name: Release ${{ steps.get_version.outputs.tag_name }}
-        draft: false
-        prerelease: false
 
   build-and-package:
-    needs: create-release
+    needs: get-version
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -78,11 +64,13 @@ jobs:
         go-version: '1.21'
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-release-${{ matrix.goos }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
+          ${{ runner.os }}-go-release-${{ matrix.goos }}-${{ matrix.goarch }}-
+          ${{ runner.os }}-go-release-
           ${{ runner.os }}-go-
 
     - name: Download dependencies
@@ -95,7 +83,25 @@ jobs:
         CGO_ENABLED: 0
       run: |
         mkdir -p build
-        go build -ldflags "-s -w -X main.version=${{ needs.create-release.outputs.tag_name }}" -o build/spotify-shuffle${{ matrix.suffix }} .
+        go build -ldflags "-s -w -X main.version=${{ needs.get-version.outputs.tag_name }}" -o build/spotify-shuffle${{ matrix.suffix }} .
+
+    # Create checksums for all binaries (Linux/macOS)
+    - name: Create checksums (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        cd build
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          shasum -a 256 spotify-shuffle${{ matrix.suffix }} > spotify-shuffle${{ matrix.suffix }}.sha256
+        else
+          sha256sum spotify-shuffle${{ matrix.suffix }} > spotify-shuffle${{ matrix.suffix }}.sha256
+        fi
+
+    # Create checksums for all binaries (Windows)
+    - name: Create checksums (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cd build
+        certutil -hashfile spotify-shuffle${{ matrix.suffix }} SHA256 > spotify-shuffle${{ matrix.suffix }}.sha256
 
     # Linux packaging (DEB)
     - name: Install packaging tools (Linux)
@@ -126,6 +132,10 @@ jobs:
         EOF
         
         dpkg-deb --build packaging/deb build/spotify-shuffle${{ matrix.suffix }}.deb
+        
+        # Create checksum for DEB package
+        cd build
+        sha256sum spotify-shuffle${{ matrix.suffix }}.deb > spotify-shuffle${{ matrix.suffix }}.deb.sha256
 
     # macOS packaging (DMG)
     - name: Create DMG package (macOS)
@@ -137,6 +147,10 @@ jobs:
         
         # Create a simple DMG
         hdiutil create -volname "Spotify Shuffle" -srcfolder packaging/dmg -ov -format UDZO build/spotify-shuffle${{ matrix.suffix }}.dmg
+        
+        # Create checksum for DMG package
+        cd build
+        shasum -a 256 spotify-shuffle${{ matrix.suffix }}.dmg > spotify-shuffle${{ matrix.suffix }}.dmg.sha256
 
     # Windows packaging (MSI)
     - name: Install WiX Toolset (Windows)
@@ -185,48 +199,45 @@ jobs:
         cd packaging\msi
         candle.exe spotify-shuffle.wxs
         light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+        
+        # Create checksum for MSI package
+        cd ..\..\build
+        certutil -hashfile spotify-shuffle${{ matrix.suffix }}.msi SHA256 > spotify-shuffle${{ matrix.suffix }}.msi.sha256
 
-    # Upload binary
-    - name: Upload binary to release
-      uses: actions/upload-release-asset@v1
+    # Upload build artifacts for the release job
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-assets-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: build/*
+        retention-days: 1
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [get-version, build-and-package]
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release-assets
+        pattern: release-assets-*
+        merge-multiple: true
+    
+    - name: Display structure of downloaded files
+      run: ls -la release-assets/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.get-version.outputs.tag_name }}
+        name: Release ${{ needs.get-version.outputs.tag_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: release-assets/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: build/spotify-shuffle${{ matrix.suffix }}
-        asset_name: spotify-shuffle${{ matrix.suffix }}
-        asset_content_type: application/octet-stream
-
-    # Upload packages
-    - name: Upload DEB package
-      if: matrix.package_type == 'deb'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: build/spotify-shuffle${{ matrix.suffix }}.deb
-        asset_name: spotify-shuffle${{ matrix.suffix }}.deb
-        asset_content_type: application/vnd.debian.binary-package
-
-    - name: Upload DMG package
-      if: matrix.package_type == 'dmg'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: build/spotify-shuffle${{ matrix.suffix }}.dmg
-        asset_name: spotify-shuffle${{ matrix.suffix }}.dmg
-        asset_content_type: application/x-apple-diskimage
-
-    - name: Upload MSI package
-      if: matrix.package_type == 'msi'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: build/spotify-shuffle${{ matrix.suffix }}.msi
-        asset_name: spotify-shuffle${{ matrix.suffix }}.msi
-        asset_content_type: application/x-msi
