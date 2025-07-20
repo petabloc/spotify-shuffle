@@ -49,9 +49,9 @@ spotify-shuffle.exe                  # Windows
 Download the appropriate binary for your platform from the [releases page](https://github.com/petabloc/spotify-shuffle/releases):
 
 #### Binaries:
-- **Windows**: `spotify-shuffle-windows-amd64.exe` (Works on Windows 10/11)
-- **macOS Intel**: `spotify-shuffle-macos-amd64` (Intel Macs)
-- **macOS Apple Silicon**: `spotify-shuffle-macos-arm64` (M1/M2/M3 Macs)
+- **Windows**: `spotify-shuffle-windows-amd64.exe` (Windows 10/11, all x64 processors)
+- **macOS Intel**: `spotify-shuffle-macos-intel` (Intel-based Macs)
+- **macOS Apple Silicon**: `spotify-shuffle-macos-apple-silicon` (M1/M2/M3/M4/M5+ Macs)
 - **Linux x64**: `spotify-shuffle-linux-amd64` (Most Linux distributions)
 - **Linux ARM**: `spotify-shuffle-linux-arm64` (Raspberry Pi, ARM servers)
 
@@ -66,10 +66,11 @@ Download the appropriate binary for your platform from the [releases page](https
 - Install: Double-click the MSI file and follow the installer
 
 **🍎 macOS Installer (DMG)**  
-- File: `spotify-shuffle-macos-amd64.dmg` or `spotify-shuffle-macos-arm64.dmg`
+- File: `spotify-shuffle-macos-intel.dmg` or `spotify-shuffle-macos-apple-silicon.dmg`
 - ✅ Installs to `/usr/local/bin`
 - ✅ Available in PATH globally
 - ✅ Includes automated installer script
+- ✅ Apple Silicon supports all M-series chips (M1/M2/M3/M4/M5+)
 - Install:
   1. Open the DMG file
   2. Open Terminal and run: `cd /Volumes/Spotify\ Shuffle/`

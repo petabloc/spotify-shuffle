@@ -154,12 +154,12 @@ jobs:
           - os: macos-latest
             goos: darwin
             goarch: amd64
-            suffix: "-macos-amd64"
+            suffix: "-macos-intel"
             package_type: "dmg"
           - os: macos-latest
             goos: darwin
             goarch: arm64
-            suffix: "-macos-arm64"
+            suffix: "-macos-apple-silicon"
             package_type: "dmg"
           
           # Windows builds
