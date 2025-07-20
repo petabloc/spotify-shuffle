@@ -356,7 +356,8 @@ jobs:
         $version = "${{ needs.tag.outputs.version }}".TrimStart('v')
         @"
         <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" 
+             xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
           <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="$version" 
                    Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
             <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" 
@@ -371,6 +372,9 @@ jobs:
               <ComponentGroupRef Id="ProductComponents" />
             </Feature>
             
+            <!-- Custom action to broadcast environment changes -->
+            <util:BroadcastEnvironmentChange />
+            
             <Directory Id="TARGETDIR" Name="SourceDir">
               <Directory Id="ProgramFilesFolder">
                 <Directory Id="INSTALLFOLDER" Name="Spotify Shuffle" />
@@ -383,7 +387,10 @@ jobs:
             <ComponentGroup Id="ProductComponents">
               <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
                 <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
-                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+              </Component>
+              <Component Id="PathComponent" Guid="*" Directory="INSTALLFOLDER">
+                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="yes" />
+                <RegistryValue Root="HKLM" Key="Software\SpotifyShuffleGo" Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
               </Component>
               <Component Id="StartMenuComponent" Guid="*" Directory="ApplicationProgramsFolder">
                 <Shortcut Id="StartMenuShortcut" Name="Spotify Shuffle" 
@@ -402,8 +409,8 @@ jobs:
         "@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
         
         cd packaging\msi
-        candle.exe spotify-shuffle.wxs
-        light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+        candle.exe -ext WixUtilExtension spotify-shuffle.wxs
+        light.exe -ext WixUtilExtension -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
     
     # Optional: Sign Windows executable and MSI (if signing certificate is available)
     - name: Sign Windows binaries (Optional)
