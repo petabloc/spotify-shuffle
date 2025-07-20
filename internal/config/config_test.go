@@ -54,7 +54,7 @@ func TestConfig(t *testing.T) {
 			os.Unsetenv("SPOTIFY_CLIENT_ID")
 			os.Unsetenv("SPOTIFY_CLIENT_SECRET")
 			os.Unsetenv("SPOTIFY_REDIRECT_URI")
-			
+
 			// Set environment variables
 			for key, value := range tt.envVars {
 				os.Setenv(key, value)

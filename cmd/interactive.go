@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/petabloc/spotify-shuffle/internal/config"
 	"github.com/petabloc/spotify-shuffle/internal/playlist"
+	"github.com/spf13/cobra"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -63,7 +63,7 @@ func runInteractive(cmd *cobra.Command, args []string) error {
 		fmt.Print("\n🔄 Would you like to work with another playlist? (y/N): ")
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
-		
+
 		if response != "y" && response != "yes" {
 			fmt.Println("👋 Goodbye!")
 			return nil
@@ -106,7 +106,7 @@ func selectPlaylistManually(reader *bufio.Reader) (*spotify.SimplePlaylist, erro
 
 	// Extract ID from URL if needed
 	playlistID := extractPlaylistID(input)
-	
+
 	// Create a simple playlist object (we'll get full details later)
 	return &spotify.SimplePlaylist{
 		ID:   spotify.ID(playlistID),
@@ -135,7 +135,7 @@ func selectFromUserPlaylists(ctx context.Context, client *spotify.Client, reader
 	}
 
 	fmt.Printf("\n👤 Found %d playlists for %s:\n", len(playlists.Playlists), user.DisplayName)
-	
+
 	// Show playlists
 	maxShow := 20
 	for i, playlist := range playlists.Playlists {
@@ -217,7 +217,7 @@ func showPlaylistMenu(ctx context.Context, manager *playlist.Manager, playlist s
 
 func interactiveShuffle(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
 	fmt.Println("🔀 Shuffling playlist...")
-	
+
 	if !confirmAction("shuffle the playlist") {
 		fmt.Println("❌ Operation cancelled")
 		return nil
@@ -271,7 +271,7 @@ func interactiveSort(ctx context.Context, manager *playlist.Manager, playlistID 
 
 func interactiveReverse(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
 	fmt.Println("🔄 Reversing playlist...")
-	
+
 	if !confirmAction("reverse the playlist order") {
 		fmt.Println("❌ Operation cancelled")
 		return nil
@@ -312,7 +312,7 @@ func interactiveRemove(ctx context.Context, manager *playlist.Manager, playlistI
 func interactiveRemoveByAge(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID, reader *bufio.Reader) error {
 	fmt.Println("\n📅 Age options:")
 	fmt.Println("1. 90 days")
-	fmt.Println("2. 180 days") 
+	fmt.Println("2. 180 days")
 	fmt.Println("3. 1 year")
 	fmt.Println("4. 2 years")
 	fmt.Println("5. 3 years")
@@ -576,7 +576,7 @@ func interactiveCreateGenre(ctx context.Context, manager *playlist.Manager, play
 
 func showPlaylistInfo(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
 	fmt.Println("ℹ️  Getting playlist information...")
-	
+
 	tracks, err := manager.GetPlaylistTracks(ctx, playlistID)
 	if err != nil {
 		return fmt.Errorf("failed to get playlist tracks: %w", err)
@@ -603,7 +603,7 @@ func showPlaylistInfo(ctx context.Context, manager *playlist.Manager, playlistID
 				name  string
 				count int
 			}
-			
+
 			var topArtists []artistCount
 			for name, count := range artistMap {
 				topArtists = append(topArtists, artistCount{name, count})
@@ -699,7 +699,7 @@ func interactiveSetup() error {
 	fmt.Printf("🔗 Redirect URI (default: %s): ", redirectURI)
 	customRedirectURI, _ := reader.ReadString('\n')
 	customRedirectURI = strings.TrimSpace(customRedirectURI)
-	
+
 	if customRedirectURI != "" {
 		redirectURI = customRedirectURI
 	}

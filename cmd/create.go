@@ -9,19 +9,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/petabloc/spotify-shuffle/internal/playlist"
+	"github.com/spf13/cobra"
 	"github.com/zmb3/spotify/v2"
 )
 
 var (
-	createType   string
-	name         string
-	days         int
-	chunkSize    int
-	genre        string
-	overwrite    bool
-	interactive  bool
+	createType  string
+	name        string
+	days        int
+	chunkSize   int
+	genre       string
+	overwrite   bool
+	interactive bool
 )
 
 // createCmd represents the create command
@@ -51,7 +51,7 @@ func createFreshPlaylist(ctx context.Context, manager *playlist.Manager, playlis
 	if days <= 0 {
 		return fmt.Errorf("days must be greater than 0")
 	}
-	
+
 	if name == "" {
 		if interactive {
 			reader := bufio.NewReader(os.Stdin)
@@ -63,7 +63,7 @@ func createFreshPlaylist(ctx context.Context, manager *playlist.Manager, playlis
 			return fmt.Errorf("playlist name is required (use --name or --interactive)")
 		}
 	}
-	
+
 	// Check for existing playlist if not overwriting
 	if !overwrite {
 		if _, err := manager.FindPlaylistByName(ctx, name); err == nil {
@@ -78,14 +78,14 @@ func createFreshPlaylist(ctx context.Context, manager *playlist.Manager, playlis
 			}
 		}
 	}
-	
+
 	fmt.Printf("🔍 Creating fresh playlist with tracks from last %d days...\n", days)
-	
+
 	trackCount, err := manager.CreateFreshPlaylist(ctx, playlistID, name, days, overwrite)
 	if err != nil {
 		return fmt.Errorf("failed to create fresh playlist: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Created fresh playlist '%s' with %d tracks!\n", name, trackCount)
 	return nil
 }
@@ -94,7 +94,7 @@ func createChunkPlaylists(ctx context.Context, manager *playlist.Manager, playli
 	if chunkSize <= 0 {
 		chunkSize = 250 // Default chunk size
 	}
-	
+
 	if name == "" {
 		if interactive {
 			reader := bufio.NewReader(os.Stdin)
@@ -106,7 +106,7 @@ func createChunkPlaylists(ctx context.Context, manager *playlist.Manager, playli
 			return fmt.Errorf("base name is required (use --name or --interactive)")
 		}
 	}
-	
+
 	// Check for existing chunk playlists if not overwriting
 	if !overwrite && interactive {
 		// Check for existing chunks
@@ -117,7 +117,7 @@ func createChunkPlaylists(ctx context.Context, manager *playlist.Manager, playli
 				existingCount++
 			}
 		}
-		
+
 		if existingCount > 0 {
 			reader := bufio.NewReader(os.Stdin)
 			fmt.Printf("⚠️  Found %d existing chunk playlists. Overwrite? (y/N): ", existingCount)
@@ -130,21 +130,21 @@ func createChunkPlaylists(ctx context.Context, manager *playlist.Manager, playli
 			}
 		}
 	}
-	
+
 	fmt.Printf("🔍 Creating chunk playlists with %d tracks per chunk...\n", chunkSize)
-	
+
 	createdCount, err := manager.CreateChunkPlaylists(ctx, playlistID, name, chunkSize, overwrite)
 	if err != nil {
 		return fmt.Errorf("failed to create chunk playlists: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Created %d chunk playlists!\n", createdCount)
 	return nil
 }
 
 func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
 	var selectedGenre string
-	
+
 	if genre != "" {
 		selectedGenre = genre
 	} else if interactive {
@@ -154,12 +154,12 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 		if err != nil {
 			return fmt.Errorf("failed to get genres: %w", err)
 		}
-		
+
 		if len(genres) == 0 {
 			fmt.Println("ℹ️  No genres found in playlist")
 			return nil
 		}
-		
+
 		// Sort genres by track count (descending)
 		type genreCount struct {
 			name  string
@@ -172,7 +172,7 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 		sort.Slice(sortedGenres, func(i, j int) bool {
 			return sortedGenres[i].count > sortedGenres[j].count
 		})
-		
+
 		fmt.Printf("\n🎵 Found %d genres in playlist:\n", len(sortedGenres))
 		maxShow := 20
 		for i, gc := range sortedGenres {
@@ -182,17 +182,17 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 			}
 			fmt.Printf("%2d. %s (%d tracks)\n", i+1, gc.name, gc.count)
 		}
-		
+
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("\nEnter genre number or name: ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
-		
+
 		if input == "" {
 			fmt.Println("❌ Operation cancelled")
 			return nil
 		}
-		
+
 		// Check if input is a number
 		if num, err := strconv.Atoi(input); err == nil {
 			if num >= 1 && num <= len(sortedGenres) && num <= maxShow {
@@ -206,7 +206,7 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 	} else {
 		return fmt.Errorf("genre is required (use --genre or --interactive)")
 	}
-	
+
 	if name == "" {
 		if interactive {
 			reader := bufio.NewReader(os.Stdin)
@@ -218,7 +218,7 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 			return fmt.Errorf("playlist name is required (use --name or --interactive)")
 		}
 	}
-	
+
 	// Check for existing playlist if not overwriting
 	if !overwrite {
 		if _, err := manager.FindPlaylistByName(ctx, name); err == nil {
@@ -237,21 +237,21 @@ func createGenrePlaylist(ctx context.Context, manager *playlist.Manager, playlis
 			}
 		}
 	}
-	
+
 	fmt.Printf("🔍 Creating genre playlist for '%s'...\n", selectedGenre)
-	
+
 	trackCount, err := manager.CreateGenrePlaylist(ctx, playlistID, name, selectedGenre, overwrite)
 	if err != nil {
 		return fmt.Errorf("failed to create genre playlist: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Created genre playlist '%s' with %d tracks!\n", name, trackCount)
 	return nil
 }
 
 func init() {
 	rootCmd.AddCommand(createCmd)
-	
+
 	createCmd.Flags().StringVar(&createType, "type", "", "Creation type: 'fresh', 'chunk', or 'genre' (required)")
 	createCmd.Flags().StringVar(&name, "name", "", "Playlist name (or base name for chunks)")
 	createCmd.Flags().IntVar(&days, "days", 30, "Number of days for fresh playlist (default: 30)")
@@ -259,6 +259,6 @@ func init() {
 	createCmd.Flags().StringVar(&genre, "genre", "", "Genre name for genre playlist")
 	createCmd.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite existing playlists")
 	createCmd.Flags().BoolVar(&interactive, "interactive", false, "Use interactive mode for prompts")
-	
+
 	createCmd.MarkFlagRequired("type")
 }

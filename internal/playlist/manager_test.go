@@ -135,8 +135,8 @@ func TestReverseTracks(t *testing.T) {
 func TestFilterTracksByAge(t *testing.T) {
 	now := time.Now()
 	tracks := []Track{
-		{ID: "1", Name: "Recent Song", AddedAt: now.AddDate(0, 0, -30)},   // 30 days ago
-		{ID: "2", Name: "Old Song", AddedAt: now.AddDate(0, 0, -100)},     // 100 days ago
+		{ID: "1", Name: "Recent Song", AddedAt: now.AddDate(0, 0, -30)},    // 30 days ago
+		{ID: "2", Name: "Old Song", AddedAt: now.AddDate(0, 0, -100)},      // 100 days ago
 		{ID: "3", Name: "Very Old Song", AddedAt: now.AddDate(0, 0, -200)}, // 200 days ago
 	}
 
@@ -184,7 +184,7 @@ func TestFilterTracksByArtist(t *testing.T) {
 func TestGetFreshTracks(t *testing.T) {
 	now := time.Now()
 	tracks := []Track{
-		{ID: "1", Name: "Very Recent", AddedAt: now.AddDate(0, 0, -10)},  // 10 days ago
+		{ID: "1", Name: "Very Recent", AddedAt: now.AddDate(0, 0, -10)}, // 10 days ago
 		{ID: "2", Name: "Recent", AddedAt: now.AddDate(0, 0, -20)},      // 20 days ago
 		{ID: "3", Name: "Old", AddedAt: now.AddDate(0, 0, -40)},         // 40 days ago
 	}
