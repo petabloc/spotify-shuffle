@@ -410,20 +410,103 @@ On first run, the app will:
 
 ## Release & Distribution
 
-The project includes automated GitHub Actions for:
+The project includes fully automated GitHub Actions workflows for seamless releases and distribution:
 
 ### Continuous Integration
-- ✅ **Testing** - Automated tests on all platforms
-- ✅ **Code Quality** - Format and vet checks
-- ✅ **Cross-compilation** - Build verification for all targets
+Every pull request and merge to main automatically runs:
+- ✅ **Testing** - Full test suite on Ubuntu (with `-short` flag for CI compatibility)
+- ✅ **Code Quality** - `go fmt` and `go vet` checks 
+- ✅ **Cross-compilation** - Build verification for all 5 target platforms
+- ✅ **Caching** - Optimized Go module caching for faster builds
 
-### Release Automation
-When a new tag is pushed (e.g., `v1.0.0`):
-- ✅ **Binaries** - Built for all platforms automatically
-- ✅ **macOS DMG** - Drag & drop installer package
-- ✅ **Windows MSI** - Windows installer package
-- ✅ **Debian DEB** - APT-compatible package
-- ✅ **GitHub Release** - Automatic release with all assets
+### Automated Release Process
+
+#### 🏷️ Two Ways to Create Releases:
+
+**Method 1: Auto-tagging (Recommended)**
+- Merge a PR to `main` branch
+- GitHub Actions automatically creates next patch version tag (e.g., `v1.2.3` → `v1.2.4`)
+- Release workflow triggers automatically
+
+**Method 2: Manual tagging**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+#### 🚀 What Happens Automatically:
+
+When a new tag is created, the release workflow:
+
+1. **🔨 Builds** cross-platform binaries with version info:
+   - `spotify-shuffle-linux-amd64`
+   - `spotify-shuffle-linux-arm64` 
+   - `spotify-shuffle-macos-amd64`
+   - `spotify-shuffle-macos-arm64`
+   - `spotify-shuffle-windows-amd64.exe`
+
+2. **📦 Creates** installer packages:
+   - **macOS**: `.dmg` files (drag & drop installers)
+   - **Windows**: `.msi` files (Windows installers with PATH integration)
+   - **Debian/Ubuntu**: `.deb` files (APT-compatible packages)
+
+3. **🔒 Generates** SHA256 checksums for security verification:
+   - `*.sha256` files for all binaries and packages
+   - Enables users to verify download integrity
+
+4. **📋 Creates** GitHub release with:
+   - **Auto-generated release notes** from commits and PRs
+   - **All binaries and packages** as downloadable assets
+   - **Checksums** for security verification
+   - **Professional formatting** with version info
+
+#### 🔧 Technical Details:
+
+**Modern GitHub Actions Stack:**
+- Uses latest `softprops/action-gh-release@v1` (replaces deprecated actions)
+- Artifact-based upload system for reliability
+- Unique cache keys prevent build conflicts
+- Cross-platform checksum generation
+
+**Build Features:**
+- **Version injection**: `main.version` set to git tag
+- **Optimized binaries**: `-ldflags "-s -w"` for smaller size  
+- **CGO disabled**: Pure Go builds for maximum compatibility
+- **Matrix builds**: Parallel building across all platforms
+
+**Security & Verification:**
+- **No custom secrets needed** - Uses built-in `GITHUB_TOKEN`
+- **SHA256 checksums** for all downloads
+- **Reproducible builds** with consistent toolchain
+
+#### 📥 Download Options:
+
+Users can download from GitHub releases page:
+- **Direct binaries** - Single executable files
+- **Installers** - DMG (macOS), MSI (Windows), DEB (Linux)
+- **Checksums** - `.sha256` files for verification
+
+Example verification:
+```bash
+# Linux/macOS
+sha256sum -c spotify-shuffle-linux-amd64.sha256
+
+# Windows  
+certutil -hashfile spotify-shuffle-windows-amd64.exe SHA256
+```
+
+#### 🎯 Release Strategy:
+
+- **Patch releases** (v1.2.3 → v1.2.4): Bug fixes, auto-triggered on merge
+- **Minor releases** (v1.2.0 → v1.3.0): New features, manual tagging
+- **Major releases** (v1.0.0 → v2.0.0): Breaking changes, manual tagging
+
+This automated system ensures every release is:
+- ✅ **Tested** across all platforms
+- ✅ **Secure** with verified checksums  
+- ✅ **Professional** with auto-generated notes
+- ✅ **Accessible** with multiple download formats
+- ✅ **Consistent** with reproducible builds
 
 ## Platform Support
 
