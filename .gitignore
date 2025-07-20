@@ -1,3 +1,5 @@
+# Ignore local certs
+cert-output/
 # Binaries for programs and plugins
 *.exe
 *.exe~
