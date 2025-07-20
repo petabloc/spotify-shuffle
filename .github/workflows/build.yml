@@ -223,9 +223,13 @@ jobs:
         cp build/spotify-shuffle${{ matrix.suffix }} packaging/deb/usr/local/bin/spotify-shuffle
         chmod +x packaging/deb/usr/local/bin/spotify-shuffle
         
+        # Strip 'v' prefix from version for Debian package
+        version="${{ needs.tag.outputs.version }}"
+        deb_version="${version#v}"
+        
         cat > packaging/deb/DEBIAN/control << EOF
         Package: spotify-shuffle
-        Version: ${{ needs.tag.outputs.version }}
+        Version: $deb_version
         Section: sound
         Priority: optional
         Architecture: ${{ matrix.goarch == 'amd64' && 'amd64' || 'arm64' }}
