@@ -17,14 +17,8 @@ jobs:
       with:
         go-version: '1.21'
     
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-test-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-test-
-          ${{ runner.os }}-go-
+    # Caching disabled due to conflicts in concurrent jobs
+    # Go modules download is fast enough without caching
     
     - name: Download dependencies
       run: go mod download
@@ -73,15 +67,8 @@ jobs:
       with:
         go-version: '1.21'
     
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-build-${{ matrix.goos }}-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-build-${{ matrix.goos }}-${{ matrix.goarch }}-
-          ${{ runner.os }}-go-build-
-          ${{ runner.os }}-go-
+    # Caching disabled due to conflicts in concurrent matrix jobs
+    # Go modules download is fast enough without caching
     
     - name: Download dependencies
       run: go mod download
