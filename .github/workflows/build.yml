@@ -356,8 +356,7 @@ jobs:
         $version = "${{ needs.tag.outputs.version }}".TrimStart('v')
         @"
         <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" 
-             xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
           <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="$version" 
                    Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
             <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" 
@@ -371,9 +370,6 @@ jobs:
                      Description="Main application and command-line interface">
               <ComponentGroupRef Id="ProductComponents" />
             </Feature>
-            
-            <!-- Custom action to broadcast environment changes -->
-            <util:BroadcastEnvironmentChange />
             
             <Directory Id="TARGETDIR" Name="SourceDir">
               <Directory Id="ProgramFilesFolder">
@@ -409,8 +405,8 @@ jobs:
         "@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
         
         cd packaging\msi
-        candle.exe -ext WixUtilExtension spotify-shuffle.wxs
-        light.exe -ext WixUtilExtension -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+        candle.exe spotify-shuffle.wxs
+        light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
     
     # Optional: Sign Windows executable and MSI (if signing certificate is available)
     - name: Sign Windows binaries (Optional)
