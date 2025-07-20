@@ -389,7 +389,9 @@ jobs:
             <ComponentGroup Id="ProductComponents">
               <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
                 <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
-                <File Id="SpotifyShuffleBAT" Source="spotify-shuffle.bat" />
+              </Component>
+              <Component Id="BatchWrapper" Guid="*" Directory="INSTALLFOLDER">
+                <File Id="SpotifyShuffleBAT" Source="spotify-shuffle.bat" KeyPath="yes" />
               </Component>
               <Component Id="PathComponent" Guid="*" Directory="INSTALLFOLDER">
                 <!-- User PATH - more reliable for per-user installations -->
