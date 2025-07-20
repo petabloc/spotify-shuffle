@@ -55,10 +55,34 @@ Download the appropriate binary for your platform from the [releases page](https
 - **Linux x64**: `spotify-shuffle-linux-amd64` (Most Linux distributions)
 - **Linux ARM**: `spotify-shuffle-linux-arm64` (Raspberry Pi, ARM servers)
 
-#### Packages:
-- **macOS**: `spotify-shuffle-macos-amd64.dmg` (drag & drop installer)
-- **Windows**: `spotify-shuffle-windows-amd64.exe.msi` (Windows installer)
-- **Debian/Ubuntu**: `spotify-shuffle-linux-amd64.deb` (APT package)
+#### Packages (Recommended - Includes PATH Integration):
+
+**🪟 Windows Installer (MSI)**
+- File: `spotify-shuffle-windows-amd64.exe.msi`
+- ✅ Installs to Program Files
+- ✅ Adds to system PATH automatically
+- ✅ Creates Start Menu shortcut
+- ✅ Professional uninstaller
+- Install: Double-click the MSI file and follow the installer
+
+**🍎 macOS Installer (DMG)**  
+- File: `spotify-shuffle-macos-amd64.dmg` or `spotify-shuffle-macos-arm64.dmg`
+- ✅ Installs to `/usr/local/bin`
+- ✅ Available in PATH globally
+- ✅ Includes automated installer script
+- Install:
+  1. Open the DMG file
+  2. Open Terminal and run: `cd /Volumes/Spotify\ Shuffle/`
+  3. Run: `sudo ./install.sh`
+  4. Enter your password when prompted
+
+**🐧 Debian/Ubuntu Package (DEB)**
+- File: `spotify-shuffle-linux-amd64.deb` or `spotify-shuffle-linux-arm64.deb` 
+- ✅ Installs to `/usr/local/bin`
+- ✅ Integrates with APT package manager
+- ✅ Automatic PATH configuration
+- Install: `sudo dpkg -i spotify-shuffle-linux-amd64.deb`
+- Uninstall: `sudo apt remove spotify-shuffle`
 
 ### 2. Setup Spotify App
 
@@ -480,7 +504,9 @@ When a new tag is created, the release workflow:
 **Security & Verification:**
 - **No custom secrets needed** - Uses built-in `GITHUB_TOKEN`
 - **SHA256 checksums** for all downloads
+- **Code signing ready** - Windows binaries can be signed with certificates
 - **Reproducible builds** with consistent toolchain
+- **Professional installers** with proper metadata and uninstall support
 
 #### 📥 Download Options:
 
