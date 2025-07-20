@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/petabloc/spotify-shuffle/internal/config"
+	"github.com/spf13/cobra"
 )
 
 var (
-	cfgFile       string
-	playlistID    string
+	cfgFile         string
+	playlistID      string
 	interactiveMode bool
 )
 
@@ -31,7 +31,7 @@ Examples:
 		if interactiveMode || len(args) == 0 {
 			return runInteractive(cmd, args)
 		}
-		
+
 		// Otherwise show help
 		return cmd.Help()
 	},

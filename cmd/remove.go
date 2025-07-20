@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/petabloc/spotify-shuffle/internal/playlist"
+	"github.com/spf13/cobra"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -33,19 +33,19 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		if removeByAge && removeByArtist {
 			return fmt.Errorf("cannot use both --age and --artist flags")
 		}
-		
+
 		if !removeByAge && !removeByArtist {
 			return fmt.Errorf("must specify either --age or --artist")
 		}
-		
+
 		if removeByAge {
 			return removeByTrackAge(ctx, manager, playlistID)
 		}
-		
+
 		if removeByArtist {
 			return removeByTrackArtist(ctx, manager, playlistID)
 		}
-		
+
 		return nil
 	})
 }
@@ -54,37 +54,37 @@ func removeByTrackAge(ctx context.Context, manager *playlist.Manager, playlistID
 	if removeDays <= 0 {
 		return fmt.Errorf("days must be greater than 0")
 	}
-	
+
 	fmt.Printf("🔍 Removing tracks older than %d days...\n", removeDays)
-	
+
 	// Ask for confirmation
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("⚠️  This will permanently remove tracks from your playlist. Continue? (y/N): ")
 	response, _ := reader.ReadString('\n')
 	response = strings.TrimSpace(strings.ToLower(response))
-	
+
 	if response != "y" && response != "yes" {
 		fmt.Println("❌ Operation cancelled")
 		return nil
 	}
-	
+
 	removedCount, err := manager.RemoveOldTracks(ctx, playlistID, removeDays)
 	if err != nil {
 		return fmt.Errorf("failed to remove old tracks: %w", err)
 	}
-	
+
 	if removedCount > 0 {
 		fmt.Printf("✅ Removed %d old tracks!\n", removedCount)
 	} else {
 		fmt.Println("ℹ️  No tracks found older than specified time period")
 	}
-	
+
 	return nil
 }
 
 func removeByTrackArtist(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
 	var artist string
-	
+
 	if artistName != "" {
 		artist = artistName
 	} else {
@@ -94,12 +94,12 @@ func removeByTrackArtist(ctx context.Context, manager *playlist.Manager, playlis
 		if err != nil {
 			return fmt.Errorf("failed to get artists: %w", err)
 		}
-		
+
 		if len(artists) == 0 {
 			fmt.Println("ℹ️  No artists found in playlist")
 			return nil
 		}
-		
+
 		fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
 		maxShow := 20
 		for i, a := range artists {
@@ -109,17 +109,17 @@ func removeByTrackArtist(ctx context.Context, manager *playlist.Manager, playlis
 			}
 			fmt.Printf("%2d. %s\n", i+1, a)
 		}
-		
+
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("\nEnter artist number or name: ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
-		
+
 		if input == "" {
 			fmt.Println("❌ Operation cancelled")
 			return nil
 		}
-		
+
 		// Check if input is a number
 		if num, err := strconv.Atoi(input); err == nil {
 			if num >= 1 && num <= len(artists) && num <= maxShow {
@@ -131,31 +131,31 @@ func removeByTrackArtist(ctx context.Context, manager *playlist.Manager, playlis
 			artist = input
 		}
 	}
-	
+
 	fmt.Printf("🔍 Removing all tracks by '%s'...\n", artist)
-	
+
 	// Ask for confirmation
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("⚠️  This will permanently remove all tracks by this artist. Continue? (y/N): ")
 	response, _ := reader.ReadString('\n')
 	response = strings.TrimSpace(strings.ToLower(response))
-	
+
 	if response != "y" && response != "yes" {
 		fmt.Println("❌ Operation cancelled")
 		return nil
 	}
-	
+
 	removedCount, err := manager.RemoveTracksByArtist(ctx, playlistID, artist)
 	if err != nil {
 		return fmt.Errorf("failed to remove tracks by artist: %w", err)
 	}
-	
+
 	if removedCount > 0 {
 		fmt.Printf("✅ Removed %d tracks by '%s'!\n", removedCount, artist)
 	} else {
 		fmt.Printf("ℹ️  No tracks found by '%s'\n", artist)
 	}
-	
+
 	return nil
 }
 

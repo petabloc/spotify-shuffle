@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/petabloc/spotify-shuffle/internal/playlist"
+	"github.com/spf13/cobra"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -28,18 +28,18 @@ func runSort(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to sort playlist by title: %w", err)
 			}
 			fmt.Println("✅ Playlist sorted by title successfully!")
-			
+
 		case "artist":
 			fmt.Println("👨‍🎤 Sorting playlist by artist...")
 			if err := manager.SortPlaylistByArtist(ctx, playlistID); err != nil {
 				return fmt.Errorf("failed to sort playlist by artist: %w", err)
 			}
 			fmt.Println("✅ Playlist sorted by artist successfully!")
-			
+
 		default:
 			return fmt.Errorf("invalid sort option: %s (use 'title' or 'artist')", sortBy)
 		}
-		
+
 		return nil
 	})
 }

@@ -79,15 +79,15 @@ func TestValidatePlaylistID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := validatePlaylistID(tt.input)
-			
+
 			if tt.wantErr && err == nil {
 				t.Errorf("validatePlaylistID() expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("validatePlaylistID() unexpected error: %v", err)
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("validatePlaylistID() = %v, want %v", result, tt.expected)
 			}
@@ -100,7 +100,7 @@ func validatePlaylistID(input string) (string, error) {
 	if input == "" {
 		return "", fmt.Errorf("playlist ID cannot be empty")
 	}
-	
+
 	// Extract ID from Spotify URL if needed
 	if strings.Contains(input, "open.spotify.com/playlist/") {
 		parts := strings.Split(input, "/")
@@ -115,7 +115,6 @@ func validatePlaylistID(input string) (string, error) {
 			}
 		}
 	}
-	
+
 	return input, nil
 }
-
