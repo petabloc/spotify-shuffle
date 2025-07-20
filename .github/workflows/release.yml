@@ -130,10 +130,43 @@ jobs:
         Priority: optional
         Architecture: ${{ matrix.goarch == 'amd64' && 'amd64' || 'arm64' }}
         Maintainer: Spotify Shuffle <noreply@example.com>
+        Homepage: https://github.com/petabloc/spotify-shuffle
+        Depends: libc6
         Description: CLI tool for managing Spotify playlists
          A fast, cross-platform CLI tool for managing your Spotify playlists.
          Features include shuffle, sort, reverse, remove tracks, and create playlists.
+         .
+         Built with Go for optimal performance and zero runtime dependencies.
+         Supports interactive mode for easy playlist management and command-line
+         mode for automation and scripting.
         EOF
+        
+        # Create postinst script to ensure PATH is available
+        cat > packaging/deb/DEBIAN/postinst << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Ensure /usr/local/bin is in PATH for all users
+        if [ -f /etc/environment ]; then
+          if ! grep -q "/usr/local/bin" /etc/environment; then
+            echo "Adding /usr/local/bin to system PATH"
+            sed -i 's|PATH="\(.*\)"|PATH="\1:/usr/local/bin"|' /etc/environment
+          fi
+        fi
+        
+        echo "✅ Spotify Shuffle installed to /usr/local/bin/spotify-shuffle"
+        echo "You can now run 'spotify-shuffle' from anywhere in your terminal."
+        EOF
+        chmod +x packaging/deb/DEBIAN/postinst
+        
+        # Create prerm script for clean uninstallation  
+        cat > packaging/deb/DEBIAN/prerm << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "Removing Spotify Shuffle..."
+        EOF
+        chmod +x packaging/deb/DEBIAN/prerm
         
         dpkg-deb --build packaging/deb build/spotify-shuffle${{ matrix.suffix }}.deb
         
@@ -149,7 +182,52 @@ jobs:
         cp build/spotify-shuffle${{ matrix.suffix }} packaging/dmg/spotify-shuffle
         chmod +x packaging/dmg/spotify-shuffle
         
-        # Create a simple DMG
+        # Create installation script
+        cat > packaging/dmg/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        echo "Installing Spotify Shuffle..."
+        
+        # Check if running as root or with sudo
+        if [ "$EUID" -ne 0 ]; then
+          echo "This installer needs administrator privileges to install to /usr/local/bin"
+          echo "Please run: sudo ./install.sh"
+          exit 1
+        fi
+        
+        # Copy binary to /usr/local/bin
+        cp spotify-shuffle /usr/local/bin/spotify-shuffle
+        chmod +x /usr/local/bin/spotify-shuffle
+        
+        echo "✅ Spotify Shuffle installed successfully!"
+        echo "You can now run 'spotify-shuffle' from anywhere in your terminal."
+        EOF
+        chmod +x packaging/dmg/install.sh
+        
+        # Create README for DMG
+        cat > packaging/dmg/README.txt << 'EOF'
+        Spotify Shuffle - Installation Instructions
+        ==========================================
+        
+        Option 1: Automatic Installation (Recommended)
+        ---------------------------------------------
+        1. Open Terminal
+        2. Navigate to this folder: cd /Volumes/Spotify\ Shuffle/  
+        3. Run: sudo ./install.sh
+        4. Enter your password when prompted
+        5. Run 'spotify-shuffle' from anywhere!
+        
+        Option 2: Manual Installation
+        ----------------------------
+        1. Copy 'spotify-shuffle' to /usr/local/bin/
+        2. Make it executable: chmod +x /usr/local/bin/spotify-shuffle
+        
+        Uninstallation
+        --------------
+        sudo rm /usr/local/bin/spotify-shuffle
+        EOF
+        
+        # Create a simple DMG with installer
         hdiutil create -volname "Spotify Shuffle" -srcfolder packaging/dmg -ov -format UDZO build/spotify-shuffle${{ matrix.suffix }}.dmg
         
         # Create checksum for DMG package
@@ -170,17 +248,22 @@ jobs:
         mkdir packaging\msi
         copy build\spotify-shuffle${{ matrix.suffix }} packaging\msi\spotify-shuffle.exe
         
-        # Create WiX source file
-        @'
+        # Create WiX source file with enhanced metadata
+        $version = "${{ needs.create-release.outputs.tag_name }}".TrimStart('v')
+        @"
         <?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-          <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="${{ needs.create-release.outputs.tag_name }}" 
+          <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="$version" 
                    Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
-            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" 
+                     Description="CLI tool for managing Spotify playlists"
+                     Comments="Fast, cross-platform CLI tool for Spotify playlist management"
+                     Keywords="Spotify,Playlist,Music,CLI,Shuffle" />
             <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
             <MediaTemplate EmbedCab="yes" />
             
-            <Feature Id="ProductFeature" Title="Spotify Shuffle" Level="1">
+            <Feature Id="ProductFeature" Title="Spotify Shuffle" Level="1"
+                     Description="Main application and command-line interface">
               <ComponentGroupRef Id="ProductComponents" />
             </Feature>
             
@@ -188,24 +271,70 @@ jobs:
               <Directory Id="ProgramFilesFolder">
                 <Directory Id="INSTALLFOLDER" Name="Spotify Shuffle" />
               </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="Spotify Shuffle" />
+              </Directory>
             </Directory>
             
             <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
               <Component Id="MainExecutable" Guid="*">
-                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
+                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes">
+                  <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder"
+                            Name="Spotify Shuffle" Description="CLI tool for managing Spotify playlists"
+                            WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.exe" IconIndex="0" />
+                </File>
                 <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+                <RemoveFolder Id="CleanupProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="installed" Type="integer" Value="1" KeyPath="no" />
               </Component>
             </ComponentGroup>
+            
+            <Icon Id="AppIcon.exe" SourceFile="spotify-shuffle.exe" />
+            
+            <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+            <UIRef Id="WixUI_InstallDir" />
+            <UIRef Id="WixUI_ErrorProgressText" />
           </Product>
         </Wix>
-        '@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
+        "@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
         
         cd packaging\msi
         candle.exe spotify-shuffle.wxs
         light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+    
+    # Optional: Sign Windows executable and MSI (if signing certificate is available)
+    - name: Sign Windows binaries (Optional)
+      if: matrix.package_type == 'msi' && env.WINDOWS_CERT_BASE64 != ''
+      env:
+        WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+        WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      run: |
+        echo "Code signing certificate detected, signing binaries..."
         
-        # Create checksum for MSI package
-        cd ..\..\build
+        # Decode certificate from base64
+        $certBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+        [System.IO.File]::WriteAllBytes("$PWD\cert.p12", $certBytes)
+        
+        # Sign the executable
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign `
+          /f cert.p12 /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+          "build\spotify-shuffle${{ matrix.suffix }}"
+        
+        # Sign the MSI
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign `
+          /f cert.p12 /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+          "build\spotify-shuffle${{ matrix.suffix }}.msi"
+        
+        # Clean up certificate file
+        Remove-Item cert.p12
+        
+        echo "✅ Binaries signed successfully"
+    
+    # Create checksum for MSI package (always, whether signed or not)
+    - name: Create MSI checksum
+      if: matrix.package_type == 'msi'  
+      run: |
+        cd build
         certutil -hashfile spotify-shuffle${{ matrix.suffix }}.msi SHA256 > spotify-shuffle${{ matrix.suffix }}.msi.sha256
 
     # Upload build artifacts for the release job
