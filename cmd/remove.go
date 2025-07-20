@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/user/spotify-shuffle/internal/playlist"
+	"github.com/petabloc/spotify-shuffle/internal/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 
 var (
 	removeByAge    bool
 	removeByArtist bool
-	days           int
+	removeDays     int
 	artistName     string
 )
 
@@ -51,11 +51,11 @@ func runRemove(cmd *cobra.Command, args []string) error {
 }
 
 func removeByTrackAge(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID) error {
-	if days <= 0 {
+	if removeDays <= 0 {
 		return fmt.Errorf("days must be greater than 0")
 	}
 	
-	fmt.Printf("🔍 Removing tracks older than %d days...\n", days)
+	fmt.Printf("🔍 Removing tracks older than %d days...\n", removeDays)
 	
 	// Ask for confirmation
 	reader := bufio.NewReader(os.Stdin)
@@ -68,7 +68,7 @@ func removeByTrackAge(ctx context.Context, manager *playlist.Manager, playlistID
 		return nil
 	}
 	
-	removedCount, err := manager.RemoveOldTracks(ctx, playlistID, days)
+	removedCount, err := manager.RemoveOldTracks(ctx, playlistID, removeDays)
 	if err != nil {
 		return fmt.Errorf("failed to remove old tracks: %w", err)
 	}
@@ -163,6 +163,6 @@ func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.Flags().BoolVar(&removeByAge, "age", false, "Remove tracks by age")
 	removeCmd.Flags().BoolVar(&removeByArtist, "artist", false, "Remove tracks by artist")
-	removeCmd.Flags().IntVar(&days, "days", 0, "Number of days (use with --age)")
+	removeCmd.Flags().IntVar(&removeDays, "days", 0, "Number of days (use with --age)")
 	removeCmd.Flags().StringVar(&artistName, "name", "", "Artist name (use with --artist)")
 }

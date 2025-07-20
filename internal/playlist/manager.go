@@ -42,19 +42,21 @@ func (m *Manager) GetPlaylistTracks(ctx context.Context, playlistID spotify.ID) 
 		}
 
 		for _, item := range page.Tracks {
-			if item.Track.Track == nil {
+			if item.Track.ID == "" {
 				continue
 			}
 
-			track := item.Track.Track
+			track := item.Track
 			var artistNames []string
 			for _, artist := range track.Artists {
 				artistNames = append(artistNames, artist.Name)
 			}
 
 			addedAt := time.Time{}
-			if item.AddedAt != nil {
-				addedAt = *item.AddedAt
+			if item.AddedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, item.AddedAt); err == nil {
+					addedAt = parsed
+				}
 			}
 
 			tracks = append(tracks, Track{
@@ -97,6 +99,18 @@ func (m *Manager) ShufflePlaylist(ctx context.Context, playlistID spotify.ID) er
 
 	// Replace playlist with shuffled tracks
 	return m.replacePlaylistTracks(ctx, playlistID, uris)
+}
+
+// SortPlaylist sorts playlist tracks by the specified criteria
+func (m *Manager) SortPlaylist(ctx context.Context, playlistID spotify.ID, sortBy string) error {
+	switch sortBy {
+	case "title":
+		return m.SortPlaylistByTitle(ctx, playlistID)
+	case "artist":
+		return m.SortPlaylistByArtist(ctx, playlistID)
+	default:
+		return fmt.Errorf("invalid sort criteria: %s. Use 'title' or 'artist'", sortBy)
+	}
 }
 
 // SortPlaylistByTitle sorts playlist tracks alphabetically by title
@@ -255,7 +269,13 @@ func (m *Manager) replacePlaylistTracks(ctx context.Context, playlistID spotify.
 		firstBatch = uris[:batchSize]
 	}
 
-	if err := m.client.ReplacePlaylistTracks(ctx, playlistID, firstBatch...); err != nil {
+	// Convert URIs to IDs for ReplacePlaylistTracks
+	var firstBatchIDs []spotify.ID
+	for _, uri := range firstBatch {
+		firstBatchIDs = append(firstBatchIDs, spotify.ID(strings.TrimPrefix(string(uri), "spotify:track:")))
+	}
+
+	if err := m.client.ReplacePlaylistTracks(ctx, playlistID, firstBatchIDs...); err != nil {
 		return fmt.Errorf("failed to replace playlist tracks: %w", err)
 	}
 
@@ -267,7 +287,14 @@ func (m *Manager) replacePlaylistTracks(ctx context.Context, playlistID spotify.
 		}
 		batch := uris[i:end]
 
-		if err := m.client.AddTracksToPlaylist(ctx, playlistID, batch...); err != nil {
+		// Convert URIs to IDs for AddTracksToPlaylist
+		var batchIDs []spotify.ID
+		for _, uri := range batch {
+			batchIDs = append(batchIDs, spotify.ID(strings.TrimPrefix(string(uri), "spotify:track:")))
+		}
+
+		_, err := m.client.AddTracksToPlaylist(ctx, playlistID, batchIDs...)
+		if err != nil {
 			return fmt.Errorf("failed to add tracks to playlist: %w", err)
 		}
 	}
@@ -518,7 +545,7 @@ func (m *Manager) CreateGenrePlaylist(ctx context.Context, sourcePlaylistID spot
 	var genreTracks []spotify.URI
 	targetGenreLower := strings.ToLower(targetGenre)
 
-	for i, track := range tracks {
+	for _, track := range tracks {
 		if genres, exists := trackGenres[track.ID]; exists {
 			for _, genre := range genres {
 				if strings.Contains(strings.ToLower(genre), targetGenreLower) {
@@ -612,7 +639,7 @@ func (m *Manager) getTrackGenres(ctx context.Context, trackIDs []spotify.ID) (ma
 		}
 		batch := artistIDsList[i:end]
 
-		artists, err := m.client.GetArtists(ctx, batch)
+		artists, err := m.client.GetArtists(ctx, batch...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get artists: %w", err)
 		}

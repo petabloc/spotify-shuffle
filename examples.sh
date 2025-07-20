@@ -4,10 +4,18 @@
 # Example Usage Script
 
 PLAYLIST_ID="37i9dQZF1DXcBWIGoYBM5M"  # Replace with your playlist ID
-APP="./spotify-shuffle"
+APP="./spotify-shuffle"                      # Linux/macOS
+# APP=".\spotify-shuffle-windows-amd64.exe"  # Windows PowerShell
+# APP="spotify-shuffle-windows-amd64.exe"    # Windows Command Prompt
 
 echo "🎵 Spotify Shuffle - Go Edition Examples"
 echo "========================================"
+echo ""
+
+# Interactive mode
+echo "🎯 Interactive Mode (Recommended):"
+echo "$APP interactive                    # Launch guided interface"
+echo "$APP                               # Or run without arguments"
 echo ""
 
 # Basic operations

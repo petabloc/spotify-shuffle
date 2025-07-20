@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/user/spotify-shuffle/cmd"
+	"github.com/petabloc/spotify-shuffle/cmd"
 )
 
 func main() {

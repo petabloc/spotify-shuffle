@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/user/spotify-shuffle/internal/playlist"
+	"github.com/petabloc/spotify-shuffle/internal/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 

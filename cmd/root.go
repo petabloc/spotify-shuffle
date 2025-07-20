@@ -5,12 +5,13 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/user/spotify-shuffle/internal/config"
+	"github.com/petabloc/spotify-shuffle/internal/config"
 )
 
 var (
-	cfgFile    string
-	playlistID string
+	cfgFile       string
+	playlistID    string
+	interactiveMode bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -21,9 +22,19 @@ var rootCmd = &cobra.Command{
 Features include shuffling, sorting, reversing, removing tracks, and creating new playlists.
 
 Examples:
+  spotify-shuffle interactive                                    # Interactive mode
   spotify-shuffle --playlist 37i9dQZF1DXcBWIGoYBM5M
   spotify-shuffle shuffle --playlist 37i9dQZF1DXcBWIGoYBM5M
   spotify-shuffle sort --by title --playlist 37i9dQZF1DXcBWIGoYBM5M`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// If interactive flag is set or no arguments provided, run interactive mode
+		if interactiveMode || len(args) == 0 {
+			return runInteractive(cmd, args)
+		}
+		
+		// Otherwise show help
+		return cmd.Help()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -37,8 +48,8 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.spotify-shuffle.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&playlistID, "playlist", "p", "", "Spotify playlist ID or URL (required)")
-	rootCmd.MarkPersistentFlagRequired("playlist")
+	rootCmd.PersistentFlags().StringVarP(&playlistID, "playlist", "p", "", "Spotify playlist ID or URL (required for non-interactive commands)")
+	rootCmd.PersistentFlags().BoolVarP(&interactiveMode, "interactive", "i", false, "Run in interactive mode")
 }
 
 // initConfig reads in config file and ENV variables if set.

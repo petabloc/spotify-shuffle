@@ -3,12 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/user/spotify-shuffle/internal/auth"
-	"github.com/user/spotify-shuffle/internal/config"
-	"github.com/user/spotify-shuffle/internal/playlist"
+	"github.com/petabloc/spotify-shuffle/internal/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 

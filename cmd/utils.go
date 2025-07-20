@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/user/spotify-shuffle/internal/auth"
-	"github.com/user/spotify-shuffle/internal/config"
-	"github.com/user/spotify-shuffle/internal/playlist"
+	"github.com/petabloc/spotify-shuffle/internal/auth"
+	"github.com/petabloc/spotify-shuffle/internal/config"
+	"github.com/petabloc/spotify-shuffle/internal/playlist"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -19,28 +19,16 @@ func runPlaylistCommand(fn PlaylistCommandFunc) error {
 	// Extract playlist ID from URL if needed
 	pid := extractPlaylistID(playlistID)
 	if pid == "" {
-		return fmt.Errorf("invalid playlist ID or URL")
+		return fmt.Errorf("playlist ID or URL is required. Use --playlist flag or run in interactive mode with 'spotify-shuffle interactive'")
 	}
-	
-	// Get Spotify configuration
-	spotifyConfig := config.GetSpotify()
-	if spotifyConfig.ClientID == "" || spotifyConfig.ClientSecret == "" {
-		return fmt.Errorf("Spotify credentials not configured. Please check your config file or environment variables")
-	}
-	
-	// Create authenticator
-	spotifyAuth := auth.NewSpotifyAuth(
-		spotifyConfig.ClientID,
-		spotifyConfig.ClientSecret,
-		spotifyConfig.RedirectURI,
-	)
 	
 	// Get authenticated client
-	ctx := context.Background()
-	client, err := spotifyAuth.GetClient(ctx)
+	client, err := getAuthenticatedClient()
 	if err != nil {
-		return fmt.Errorf("failed to authenticate: %w", err)
+		return fmt.Errorf("authentication failed: %w", err)
 	}
+	
+	ctx := context.Background()
 	
 	// Get playlist info
 	playlistInfo, err := client.GetPlaylist(ctx, spotify.ID(pid))
@@ -80,4 +68,34 @@ func extractPlaylistID(input string) string {
 	
 	// Assume it's already a playlist ID
 	return input
+}
+
+// getAuthenticatedClient creates and returns an authenticated Spotify client
+func getAuthenticatedClient() (*spotify.Client, error) {
+	// Get Spotify configuration
+	spotifyConfig := config.GetSpotify()
+	if spotifyConfig.ClientID == "" || spotifyConfig.ClientSecret == "" {
+		return nil, fmt.Errorf("Spotify credentials not configured. Please run 'spotify-shuffle interactive' to set up your credentials")
+	}
+	
+	// Check for placeholder values
+	if spotifyConfig.ClientID == "your_spotify_client_id" || spotifyConfig.ClientSecret == "your_spotify_client_secret" {
+		return nil, fmt.Errorf("please update your Spotify credentials in the config file or run 'spotify-shuffle interactive' for guided setup")
+	}
+	
+	// Create authenticator
+	spotifyAuth := auth.NewSpotifyAuth(
+		spotifyConfig.ClientID,
+		spotifyConfig.ClientSecret,
+		spotifyConfig.RedirectURI,
+	)
+	
+	// Get authenticated client
+	ctx := context.Background()
+	client, err := spotifyAuth.GetClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to authenticate: %w", err)
+	}
+	
+	return client, nil
 }
