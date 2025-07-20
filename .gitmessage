@@ -1,0 +1,13 @@
+# <type>: <description>
+#
+# <body>
+#
+# Types: feat, fix, docs, style, refactor, test, chore
+# 
+# Example:
+# feat: add new feature for playlist management
+# 
+# Extended description explaining the change in more detail.
+# - What was changed
+# - Why it was changed  
+# - Any breaking changes

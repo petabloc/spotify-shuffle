@@ -1,0 +1,584 @@
+# Spotify Shuffle - Go Edition
+
+A fast, cross-platform CLI tool for managing your Spotify playlists. Built in Go for optimal performance and single-binary distribution.
+
+🎯 **New: Interactive Mode** - The easiest way to manage your playlists with a guided, menu-driven interface!
+
+## 🚀 30-Second Quick Start
+
+```bash
+# 1. Download binary for your platform (see below)
+# 2. Run interactive mode
+./spotify-shuffle                    # Linux/macOS
+spotify-shuffle.exe                  # Windows
+
+# 3. Follow the guided setup:
+#    → Enter Spotify app credentials (one-time)
+#    → Browse and select your playlists
+#    → Choose operations with guided menus
+#    → Confirm changes with safety prompts
+```
+
+**That's it!** No command-line syntax to learn, no playlist IDs to copy. The interactive mode handles everything with a user-friendly interface.
+
+## Features
+
+- 🎯 **Interactive Mode** - Guided interface for all operations
+- 🔀 **Shuffle playlist** - Randomize track order
+- 🔤 **Sort playlist** - Sort by title or artist name  
+- 🔄 **Reverse playlist** - Reverse current order
+- 🗑️ **Remove tracks** - By age or artist name
+- ➕ **Create playlists** - Fresh (recent tracks), Chunk (split large playlists), Genre-based
+- 📋 **Playlist selection** - Browse your playlists or enter ID/URL
+- ⚡ **Fast execution** - Compiled Go binary
+- 🌍 **Cross-platform** - Windows, macOS, Linux
+- 📦 **Single binary** - No runtime dependencies
+
+## Quick Start
+
+### Option 1: Interactive Mode (Recommended for Beginners)
+
+1. Download the binary for your platform (see below)
+2. Set up your Spotify app credentials
+3. Run `./spotify-shuffle` and follow the guided interface!
+
+### Option 2: Command Line Mode (For Automation)
+
+### 1. Download Binary
+
+Download the appropriate binary for your platform from the [releases page](https://github.com/petabloc/spotify-shuffle/releases):
+
+#### Binaries:
+- **Windows**: `spotify-shuffle-windows-amd64.exe` (Windows 10/11, all x64 processors)
+- **macOS Intel**: `spotify-shuffle-macos-intel` (Intel-based Macs)
+- **macOS Apple Silicon**: `spotify-shuffle-macos-apple-silicon` (M1/M2/M3/M4/M5+ Macs)
+- **Linux x64**: `spotify-shuffle-linux-amd64` (Most Linux distributions)
+- **Linux ARM**: `spotify-shuffle-linux-arm64` (Raspberry Pi, ARM servers)
+
+#### Packages (Recommended - Includes PATH Integration):
+
+**🪟 Windows Installer (MSI)**
+- File: `spotify-shuffle-windows-amd64.exe.msi`
+- ✅ Installs to Program Files
+- ✅ Adds to system PATH automatically
+- ✅ Creates Start Menu shortcut
+- ✅ Professional uninstaller
+- Install: Double-click the MSI file and follow the installer
+
+**🍎 macOS Installer (DMG)**  
+- File: `spotify-shuffle-macos-intel.dmg` or `spotify-shuffle-macos-apple-silicon.dmg`
+- ✅ Installs to `/usr/local/bin`
+- ✅ Available in PATH globally
+- ✅ Includes automated installer script
+- ✅ Apple Silicon supports all M-series chips (M1/M2/M3/M4/M5+)
+- Install:
+  1. Open the DMG file
+  2. Open Terminal and run: `cd /Volumes/Spotify\ Shuffle/`
+  3. Run: `sudo ./install.sh`
+  4. Enter your password when prompted
+
+**🐧 Debian/Ubuntu Package (DEB)**
+- File: `spotify-shuffle-linux-amd64.deb` or `spotify-shuffle-linux-arm64.deb` 
+- ✅ Installs to `/usr/local/bin`
+- ✅ Integrates with APT package manager
+- ✅ Automatic PATH configuration
+- Install: `sudo dpkg -i spotify-shuffle-linux-amd64.deb`
+- Uninstall: `sudo apt remove spotify-shuffle`
+
+### 2. Setup Spotify App
+
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Add `http://127.0.0.1:8080/callback` to redirect URIs
+4. Copy your Client ID and Client Secret
+
+### 3. Configure Credentials
+
+**Option A: Interactive Setup (Easiest)**
+The app will guide you through credential setup on first run and create `~/.spotify-shuffle.yaml`
+
+**Option B: Manual Config File**
+```yaml
+spotify:
+  client_id: "your_spotify_client_id"
+  client_secret: "your_spotify_client_secret"
+  redirect_uri: "http://127.0.0.1:8080/callback"
+```
+
+**Option C: Environment Variables**
+```bash
+export SPOTIFY_CLIENT_ID="your_client_id"
+export SPOTIFY_CLIENT_SECRET="your_client_secret"
+export SPOTIFY_REDIRECT_URI="http://127.0.0.1:8080/callback"
+```
+
+### 4. Run Interactive Mode
+
+```bash
+# Launch the guided interface
+./spotify-shuffle
+
+# Or explicitly
+./spotify-shuffle interactive
+```
+
+## Usage
+
+### Interactive Mode (Recommended)
+
+The interactive mode provides a user-friendly, guided experience:
+
+```bash
+# Launch interactive mode
+./spotify-shuffle interactive
+
+# Or simply run without arguments
+./spotify-shuffle
+```
+
+#### 🎯 Interactive Features:
+
+**Playlist Selection:**
+- 📋 **Browse your playlists** - Automatically loads and displays your Spotify playlists
+- 🔗 **Manual entry** - Enter playlist ID or full Spotify URL
+- 🔍 **Smart search** - Find playlists by name
+
+**Operations Menu:**
+- 🔀 **Shuffle** - Randomize track order with confirmation
+- 🔤 **Sort** - Choose between title or artist sorting
+- 🔄 **Reverse** - Reverse current playlist order
+- 🗑️ **Remove tracks** - Multiple removal options:
+  - By age: 90/180 days, 1/2/3 years, or custom
+  - By artist: Interactive artist selection
+- ➕ **Create playlists**:
+  - **Fresh**: Recent tracks (30/90/180 days)
+  - **Chunk**: Split large playlists (custom size)
+  - **Genre**: Filter by music genre
+- ℹ️ **Playlist info** - View statistics and top artists
+
+**User Experience:**
+- ✅ **Safety prompts** - Confirmation before any changes
+- 📊 **Real-time feedback** - See results immediately
+- 🔄 **Multi-session** - Work with multiple playlists
+- 🎨 **Rich interface** - Emojis and clear formatting
+
+#### Example Interactive Session:
+
+```
+🎵 Welcome to Spotify Shuffle Interactive Mode!
+===============================================
+
+📋 Select a playlist:
+1. Enter playlist ID/URL manually
+2. Choose from your playlists
+3. Exit
+
+Choose option (1-3): 2
+
+🔍 Loading your playlists...
+
+👤 Found 15 playlists for John Doe:
+ 1. My Liked Songs (1,234 tracks)
+ 2. Workout Mix (67 tracks)
+ 3. Chill Vibes (145 tracks)
+ ...
+
+Choose playlist (1-15): 2
+
+🎵 Working with playlist: Workout Mix
+==========================================
+
+📋 Choose an operation:
+1. 🔀 Shuffle tracks
+2. 🔤 Sort tracks
+3. 🔄 Reverse tracks
+...
+```
+
+### Command Line Mode (For Automation & Scripts)
+
+For automation, scripts, or when you prefer command-line arguments:
+
+```bash
+# Shuffle a playlist
+./spotify-shuffle shuffle --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Sort by title
+./spotify-shuffle sort --by title --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Sort by artist
+./spotify-shuffle sort --by artist --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Reverse order
+./spotify-shuffle reverse --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Remove tracks older than 90 days
+./spotify-shuffle remove --age --days 90 --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Remove tracks by artist (interactive)
+./spotify-shuffle remove --artist --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Remove specific artist
+./spotify-shuffle remove --artist --name "Artist Name" --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Create fresh playlist with tracks from last 90 days
+./spotify-shuffle create --type fresh --days 90 --name "Recent Hits" --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Create chunk playlists (250 tracks each)
+./spotify-shuffle create --type chunk --name "BigPlaylist" --size 250 --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Create genre playlist (interactive mode)
+./spotify-shuffle create --type genre --interactive --playlist 37i9dQZF1DXcBWIGoYBM5M
+
+# Create genre playlist (direct)
+./spotify-shuffle create --type genre --genre "rock" --name "Rock Collection" --playlist 37i9dQZF1DXcBWIGoYBM5M
+```
+
+### Getting Playlist ID
+
+**Interactive Mode**: Automatically browses your playlists - no ID needed!
+
+**Command Line Mode**: Get playlist ID from Spotify:
+- Right-click playlist → Share → Copy link
+- URL: `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`
+- Use full URL or just the ID: `37i9dQZF1DXcBWIGoYBM5M`
+
+**Supported Formats**:
+- Full URL: `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`
+- Spotify URI: `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`
+- Direct ID: `37i9dQZF1DXcBWIGoYBM5M`
+
+## Example Workflows
+
+### 🎯 Beginner Workflow (Interactive Mode)
+
+Perfect for first-time users or occasional playlist management:
+
+```bash
+# 1. Launch interactive mode
+./spotify-shuffle
+
+# The app guides you through:
+# → Authentication (one-time setup)
+# → Playlist selection (browse your playlists)
+# → Operation selection (guided menus)
+# → Confirmation prompts (safety checks)
+# → Real-time feedback (see results)
+```
+
+**Example Session:**
+1. **First Run**: Set up Spotify credentials
+2. **Select Playlist**: Browse and choose "My Workout Mix"
+3. **Choose Operation**: Shuffle tracks
+4. **Confirm**: "This will shuffle 67 tracks. Continue? (y/N)"
+5. **Result**: "✅ Playlist shuffled successfully!"
+6. **Continue**: Work with another playlist or exit
+
+### 🔧 Power User Workflow (Command Line)
+
+Perfect for automation, scripts, and batch operations:
+
+```bash
+# Playlist management script
+PLAYLIST="37i9dQZF1DXcBWIGoYBM5M"
+
+# 1. Clean up old tracks
+./spotify-shuffle remove --age --days 180 --playlist $PLAYLIST
+
+# 2. Add fresh content
+./spotify-shuffle create --type fresh --days 30 --name "Recent Hits" --playlist $PLAYLIST
+
+# 3. Organize main playlist
+./spotify-shuffle shuffle --playlist $PLAYLIST
+```
+
+### 🎵 Music Curation Workflow
+
+Comprehensive playlist management using both modes:
+
+```bash
+# 1. Interactive discovery phase
+./spotify-shuffle interactive
+# → Browse playlists
+# → Check playlist statistics
+# → Identify playlists needing attention
+
+# 2. Batch processing phase (command line)
+for playlist in "Rock Classics" "Pop Hits" "Indie Discoveries"; do
+  ./spotify-shuffle remove --age --days 365 --playlist "$playlist"
+  ./spotify-shuffle shuffle --playlist "$playlist"
+done
+
+# 3. Create specialized playlists
+./spotify-shuffle create --type genre --genre "electronic" --name "Electronic Vibes" --playlist "Main Mix"
+./spotify-shuffle create --type chunk --size 200 --name "Road Trip" --playlist "Long Playlist"
+```
+
+### 🤖 Automation Workflow
+
+Setting up automated playlist maintenance:
+
+```bash
+#!/bin/bash
+# weekly-playlist-maintenance.sh
+
+# Clean up workout playlist
+./spotify-shuffle remove --age --days 90 --playlist "Workout Mix"
+
+# Refresh discovery playlist
+./spotify-shuffle create --type fresh --days 7 --name "This Week's Finds" --playlist "Discovery Weekly" --overwrite
+
+# Shuffle main playlists
+./spotify-shuffle shuffle --playlist "Daily Mix"
+./spotify-shuffle shuffle --playlist "Liked Songs Sample"
+
+# Create weekend playlist
+./spotify-shuffle create --type chunk --size 100 --name "Weekend Vibes" --playlist "Chill Collection"
+```
+
+## Building from Source
+
+### Prerequisites
+
+- [Go 1.21+](https://golang.org/dl/)
+- Git
+
+### Build
+
+```bash
+# Clone repository
+git clone https://github.com/petabloc/spotify-shuffle.git
+cd spotify-shuffle
+
+# Build for current platform
+make build
+
+# Build for all platforms
+make build-all
+
+# Install to system
+make install
+
+# Create packages
+make package-all
+```
+
+### Development
+
+```bash
+# Install dependencies
+make deps
+
+# Build with race detection
+make dev
+
+# Run tests
+make test
+
+# Format and check code
+make check
+
+# See all targets
+make help
+```
+
+## Authentication
+
+### First-Time Setup
+
+On first run, the app will:
+
+1. **Interactive Mode**: Guide you through credential setup
+2. **All Modes**: Display an authorization URL
+3. **Browser Authentication**: Automatically open your browser
+4. **Success Confirmation**: Show a success page after authorization
+5. **Save Credentials**: Store tokens for future use
+
+### Technical Details
+
+- **OAuth 2.0 Flow**: Secure authentication via Spotify
+- **Local Server**: Uses port 8080 for OAuth callback
+- **Token Storage**: Encrypted token storage for security
+- **Auto-Refresh**: Automatically refreshes expired tokens
+
+### Security Features
+
+- ✅ **No password storage** - Uses OAuth tokens only
+- ✅ **Local authentication** - No data sent to third parties
+- ✅ **Secure redirect** - Uses IP-based localhost (127.0.0.1)
+- ✅ **Minimal permissions** - Only requests necessary Spotify scopes
+
+## Interactive vs Command Line Comparison
+
+| Feature | Interactive Mode | Command Line Mode |
+|---------|------------------|-------------------|
+| **🎯 Best For** | Beginners, exploration, one-off tasks | Automation, scripts, power users |
+| **📋 Playlist Selection** | Browse your playlists visually | Requires playlist ID/URL |
+| **🛡️ Safety** | Confirmation prompts for all actions | Direct execution (be careful!) |
+| **🎨 User Experience** | Rich, guided interface with emojis | Fast, scriptable commands |
+| **📊 Feedback** | Real-time statistics and progress | Minimal output |
+| **🔄 Workflow** | Multi-playlist sessions | Single operation per command |
+| **📚 Learning Curve** | None - guided menus | Requires learning command syntax |
+
+## Why Go?
+
+This project is built in Go for optimal performance and distribution:
+
+| Feature | Benefits |
+|---------|----------|
+| **Binary Size** | ~9MB single executable |
+| **Startup Time** | Instant execution |
+| **Dependencies** | Zero runtime dependencies |
+| **Distribution** | Single file deployment |
+| **Performance** | Very fast execution |
+| **Memory Usage** | Low memory footprint |
+| **Interactive Mode** | Full-featured terminal UI |
+| **Cross-Platform** | Native builds for all platforms |
+| **Packaging** | Professional installers (DMG, MSI, DEB) |
+
+## Release & Distribution
+
+The project includes fully automated GitHub Actions workflows for seamless releases and distribution:
+
+### Continuous Integration
+Every pull request and merge to main automatically runs:
+- ✅ **Testing** - Full test suite on Ubuntu (with `-short` flag for CI compatibility)
+- ✅ **Code Quality** - `go fmt` and `go vet` checks 
+- ✅ **Cross-compilation** - Build verification for all 5 target platforms
+- ✅ **Caching** - Optimized Go module caching for faster builds
+
+### Automated Release Process
+
+#### 🏷️ Two Ways to Create Releases:
+
+**Method 1: Auto-tagging (Recommended)**
+- Merge a PR to `main` branch
+- GitHub Actions automatically creates next patch version tag (e.g., `v1.2.3` → `v1.2.4`)
+- Release workflow triggers automatically
+
+**Method 2: Manual tagging**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+#### 🚀 What Happens Automatically:
+
+When a new tag is created, the release workflow:
+
+1. **🔨 Builds** cross-platform binaries with version info:
+   - `spotify-shuffle-linux-amd64`
+   - `spotify-shuffle-linux-arm64` 
+   - `spotify-shuffle-macos-amd64`
+   - `spotify-shuffle-macos-arm64`
+   - `spotify-shuffle-windows-amd64.exe`
+
+2. **📦 Creates** installer packages:
+   - **macOS**: `.dmg` files (drag & drop installers)
+   - **Windows**: `.msi` files (Windows installers with PATH integration)
+   - **Debian/Ubuntu**: `.deb` files (APT-compatible packages)
+
+3. **🔒 Generates** SHA256 checksums for security verification:
+   - `*.sha256` files for all binaries and packages
+   - Enables users to verify download integrity
+
+4. **📋 Creates** GitHub release with:
+   - **Auto-generated release notes** from commits and PRs
+   - **All binaries and packages** as downloadable assets
+   - **Checksums** for security verification
+   - **Professional formatting** with version info
+
+#### 🔧 Technical Details:
+
+**Modern GitHub Actions Stack:**
+- Uses latest `softprops/action-gh-release@v1` (replaces deprecated actions)
+- Artifact-based upload system for reliability
+- Unique cache keys prevent build conflicts
+- Cross-platform checksum generation
+
+**Build Features:**
+- **Version injection**: `main.version` set to git tag
+- **Optimized binaries**: `-ldflags "-s -w"` for smaller size  
+- **CGO disabled**: Pure Go builds for maximum compatibility
+- **Matrix builds**: Parallel building across all platforms
+
+**Security & Verification:**
+- **No custom secrets needed** - Uses built-in `GITHUB_TOKEN`
+- **SHA256 checksums** for all downloads
+- **Code signing ready** - Windows binaries can be signed with certificates
+- **Reproducible builds** with consistent toolchain
+- **Professional installers** with proper metadata and uninstall support
+
+#### 📥 Download Options:
+
+Users can download from GitHub releases page:
+- **Direct binaries** - Single executable files
+- **Installers** - DMG (macOS), MSI (Windows), DEB (Linux)
+- **Checksums** - `.sha256` files for verification
+
+Example verification:
+```bash
+# Linux/macOS
+sha256sum -c spotify-shuffle-linux-amd64.sha256
+
+# Windows  
+certutil -hashfile spotify-shuffle-windows-amd64.exe SHA256
+```
+
+#### 🎯 Release Strategy:
+
+- **Patch releases** (v1.2.3 → v1.2.4): Bug fixes, auto-triggered on merge
+- **Minor releases** (v1.2.0 → v1.3.0): New features, manual tagging
+- **Major releases** (v1.0.0 → v2.0.0): Breaking changes, manual tagging
+
+This automated system ensures every release is:
+- ✅ **Tested** across all platforms
+- ✅ **Secure** with verified checksums  
+- ✅ **Professional** with auto-generated notes
+- ✅ **Accessible** with multiple download formats
+- ✅ **Consistent** with reproducible builds
+
+## Platform Support
+
+- ✅ **Windows** (amd64)
+- ✅ **macOS** (Intel + Apple Silicon)
+- ✅ **Linux** (amd64 + arm64)
+- ✅ **WSL** (Windows Subsystem for Linux)
+
+## Troubleshooting
+
+### Common Issues
+
+**🔐 Authentication Problems:**
+- **Redirect URI Error**: Ensure redirect URI is exactly `http://127.0.0.1:8080/callback`
+- **Invalid Credentials**: Check Client ID/Secret in Spotify Developer Dashboard
+- **Reset Authentication**: Delete `~/.spotify-shuffle.yaml` and `~/.spotify-shuffle-token.json`
+- **Port Conflicts**: Ensure port 8080 is available
+
+**📋 Playlist Issues:**
+- **Permission Denied**: You can only modify playlists you own or follow
+- **Playlist Not Found**: Check playlist ID/URL is correct and playlist is public/accessible
+- **Missing Tracks**: Some tracks may not be available due to regional restrictions
+
+**💻 System Issues:**
+- **macOS Permission**: Run `chmod +x spotify-shuffle-macos-*`
+- **Linux Permission**: Run `chmod +x spotify-shuffle-linux-*`
+- **Windows**: Use `spotify-shuffle-windows-amd64.exe` (not the Linux binary!)
+- **Windows Antivirus**: Add binary to antivirus exceptions if needed
+- **Windows PowerShell**: Use `.\spotify-shuffle-windows-amd64.exe` if in PowerShell
+
+**🎯 Interactive Mode Issues:**
+- **No Playlists Shown**: Check Spotify account has playlists and proper authentication
+- **Selection Not Working**: Use number keys (1-9) for menu selection
+- **Browser Not Opening**: Copy the displayed URL manually into your browser
+
+### Getting Help
+
+- **Interactive Mode**: Built-in help and error messages
+- **Command Help**: Use `--help` flag with any command
+- **Verbose Output**: Use interactive mode for detailed feedback
+- **GitHub Issues**: Report bugs at [github.com/petabloc/spotify-shuffle/issues](https://github.com/petabloc/spotify-shuffle/issues)
+
+## License
+
+MIT License - See LICENSE file for details.

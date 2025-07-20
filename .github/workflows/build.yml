@@ -1,0 +1,485 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    # Caching disabled due to conflicts in concurrent jobs
+    # Go modules download is fast enough without caching
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Run tests
+      run: go test -short -v ./...
+    
+    - name: Run go vet
+      run: go vet ./...
+    
+    - name: Run go fmt check
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Code is not formatted. Please run: go fmt ./..."
+          gofmt -s -l .
+          exit 1
+        fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: "-linux-amd64"
+          - goos: linux
+            goarch: arm64
+            suffix: "-linux-arm64"
+          - goos: darwin
+            goarch: amd64
+            suffix: "-macos-amd64"
+          - goos: darwin
+            goarch: arm64
+            suffix: "-macos-arm64"
+          - goos: windows
+            goarch: amd64
+            suffix: "-windows-amd64.exe"
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    # Caching disabled due to conflicts in concurrent matrix jobs
+    # Go modules download is fast enough without caching
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p build
+        go build -ldflags "-s -w -X main.version=${GITHUB_SHA::8}" -o build/spotify-shuffle${{ matrix.suffix }} .
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: spotify-shuffle${{ matrix.suffix }}
+        path: build/spotify-shuffle${{ matrix.suffix }}
+        retention-days: 7
+
+  tag:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Generate version tag
+      id: version
+      run: |
+        # Get the latest tag, if any
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Extract version numbers
+        VERSION=$(echo $LATEST_TAG | sed 's/^v//')
+        MAJOR=$(echo $VERSION | cut -d. -f1)
+        MINOR=$(echo $VERSION | cut -d. -f2)
+        PATCH=$(echo $VERSION | cut -d. -f3)
+        
+        # Increment patch version
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+        
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Create and push tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag ${{ steps.version.outputs.version }}
+        git push origin ${{ steps.version.outputs.version }}
+    
+  build-packages:
+    runs-on: ${{ matrix.os }}
+    needs: [test, build, tag]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            suffix: "-linux-amd64"
+            package_type: "deb"
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            suffix: "-linux-arm64"
+            package_type: "deb"
+          
+          # macOS builds
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            suffix: "-macos-intel"
+            package_type: "dmg"
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            suffix: "-macos-apple-silicon"
+            package_type: "dmg"
+          
+          # Windows builds
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            suffix: "-windows-amd64.exe"
+            package_type: "msi"
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p build
+        go build -ldflags "-s -w -X main.version=${{ needs.tag.outputs.version }}" -o build/spotify-shuffle${{ matrix.suffix }} .
+
+    # Create checksums for all binaries (Linux/macOS)
+    - name: Create checksums (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        cd build
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          shasum -a 256 spotify-shuffle${{ matrix.suffix }} > spotify-shuffle${{ matrix.suffix }}.sha256
+        else
+          sha256sum spotify-shuffle${{ matrix.suffix }} > spotify-shuffle${{ matrix.suffix }}.sha256
+        fi
+
+    # Create checksums for all binaries (Windows)
+    - name: Create checksums (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cd build
+        certutil -hashfile spotify-shuffle${{ matrix.suffix }} SHA256 > spotify-shuffle${{ matrix.suffix }}.sha256
+
+    # Linux packaging (DEB)
+    - name: Install packaging tools (Linux)
+      if: matrix.package_type == 'deb'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev
+
+    - name: Create DEB package (Linux)
+      if: matrix.package_type == 'deb'
+      run: |
+        mkdir -p packaging/deb/DEBIAN
+        mkdir -p packaging/deb/usr/local/bin
+        
+        cp build/spotify-shuffle${{ matrix.suffix }} packaging/deb/usr/local/bin/spotify-shuffle
+        chmod +x packaging/deb/usr/local/bin/spotify-shuffle
+        
+        # Strip 'v' prefix from version for Debian package
+        version="${{ needs.tag.outputs.version }}"
+        deb_version="${version#v}"
+        
+        cat > packaging/deb/DEBIAN/control << EOF
+        Package: spotify-shuffle
+        Version: $deb_version
+        Section: sound
+        Priority: optional
+        Architecture: ${{ matrix.goarch == 'amd64' && 'amd64' || 'arm64' }}
+        Maintainer: Spotify Shuffle <noreply@example.com>
+        Homepage: https://github.com/petabloc/spotify-shuffle
+        Depends: libc6
+        Description: CLI tool for managing Spotify playlists
+         A fast, cross-platform CLI tool for managing your Spotify playlists.
+         Features include shuffle, sort, reverse, remove tracks, and create playlists.
+         .
+         Built with Go for optimal performance and zero runtime dependencies.
+         Supports interactive mode for easy playlist management and command-line
+         mode for automation and scripting.
+        EOF
+        
+        # Create postinst script to ensure PATH is available
+        cat > packaging/deb/DEBIAN/postinst << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Ensure /usr/local/bin is in PATH for all users
+        if [ -f /etc/environment ]; then
+          if ! grep -q "/usr/local/bin" /etc/environment; then
+            echo "Adding /usr/local/bin to system PATH"
+            sed -i 's|PATH="\(.*\)"|PATH="\1:/usr/local/bin"|' /etc/environment
+          fi
+        fi
+        
+        echo "✅ Spotify Shuffle installed to /usr/local/bin/spotify-shuffle"
+        echo "You can now run 'spotify-shuffle' from anywhere in your terminal."
+        EOF
+        chmod +x packaging/deb/DEBIAN/postinst
+        
+        # Create prerm script for clean uninstallation  
+        cat > packaging/deb/DEBIAN/prerm << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "Removing Spotify Shuffle..."
+        EOF
+        chmod +x packaging/deb/DEBIAN/prerm
+        
+        dpkg-deb --build packaging/deb build/spotify-shuffle${{ matrix.suffix }}.deb
+        
+        # Create checksum for DEB package
+        cd build
+        sha256sum spotify-shuffle${{ matrix.suffix }}.deb > spotify-shuffle${{ matrix.suffix }}.deb.sha256
+
+    # macOS packaging (DMG)
+    - name: Create DMG package (macOS)
+      if: matrix.package_type == 'dmg'
+      run: |
+        mkdir -p packaging/dmg
+        cp build/spotify-shuffle${{ matrix.suffix }} packaging/dmg/spotify-shuffle
+        chmod +x packaging/dmg/spotify-shuffle
+        
+        # Create installation script
+        cat > packaging/dmg/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        echo "Installing Spotify Shuffle..."
+        
+        # Check if running as root or with sudo
+        if [ "$EUID" -ne 0 ]; then
+          echo "This installer needs administrator privileges to install to /usr/local/bin"
+          echo "Please run: sudo ./install.sh"
+          exit 1
+        fi
+        
+        # Copy binary to /usr/local/bin
+        cp spotify-shuffle /usr/local/bin/spotify-shuffle
+        chmod +x /usr/local/bin/spotify-shuffle
+        
+        echo "✅ Spotify Shuffle installed successfully!"
+        echo "You can now run 'spotify-shuffle' from anywhere in your terminal."
+        EOF
+        chmod +x packaging/dmg/install.sh
+        
+        # Create README for DMG
+        cat > packaging/dmg/README.txt << 'EOF'
+        Spotify Shuffle - Installation Instructions
+        ==========================================
+        
+        Option 1: Automatic Installation (Recommended)
+        ---------------------------------------------
+        1. Open Terminal
+        2. Navigate to this folder: cd /Volumes/Spotify\ Shuffle/  
+        3. Run: sudo ./install.sh
+        4. Enter your password when prompted
+        5. Run 'spotify-shuffle' from anywhere!
+        
+        Option 2: Manual Installation
+        ----------------------------
+        1. Copy 'spotify-shuffle' to /usr/local/bin/
+        2. Make it executable: chmod +x /usr/local/bin/spotify-shuffle
+        
+        Uninstallation
+        --------------
+        sudo rm /usr/local/bin/spotify-shuffle
+        EOF
+        
+        # Create a simple DMG with installer
+        hdiutil create -volname "Spotify Shuffle" -srcfolder packaging/dmg -ov -format UDZO build/spotify-shuffle${{ matrix.suffix }}.dmg
+        
+        # Create checksum for DMG package
+        cd build
+        shasum -a 256 spotify-shuffle${{ matrix.suffix }}.dmg > spotify-shuffle${{ matrix.suffix }}.dmg.sha256
+
+    # Windows packaging (MSI)
+    - name: Install WiX Toolset (Windows)
+      if: matrix.package_type == 'msi'
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip" -OutFile "wix.zip"
+        Expand-Archive -Path "wix.zip" -DestinationPath "wix"
+        echo "$PWD\wix" >> $env:GITHUB_PATH
+
+    - name: Create MSI package (Windows)
+      if: matrix.package_type == 'msi'
+      run: |
+        mkdir packaging\msi
+        copy build\spotify-shuffle${{ matrix.suffix }} packaging\msi\spotify-shuffle.exe
+        
+        # Create WiX source file with enhanced metadata and proper component structure
+        $version = "${{ needs.tag.outputs.version }}".TrimStart('v')
+        @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+          <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="$version" 
+                   Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perUser" 
+                     Description="CLI tool for managing Spotify playlists"
+                     Comments="Fast, cross-platform CLI tool for Spotify playlist management"
+                     Keywords="Spotify,Playlist,Music,CLI,Shuffle" />
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+            
+            <Feature Id="ProductFeature" Title="Spotify Shuffle" Level="1"
+                     Description="Main application and command-line interface">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+            
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="LocalAppDataFolder">
+                <Directory Id="INSTALLFOLDER" Name="Spotify Shuffle" />
+              </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="Spotify Shuffle" />
+              </Directory>
+            </Directory>
+            
+            <ComponentGroup Id="ProductComponents">
+              <Component Id="MainExecutable" Guid="12345678-1234-1234-1234-123456789001" Directory="INSTALLFOLDER">
+                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" />
+                <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="MainExecutable" Type="string" Value="[INSTALLFOLDER]spotify-shuffle.exe" KeyPath="yes" />
+              </Component>
+              <Component Id="PathComponent" Guid="12345678-1234-1234-1234-123456789002" Directory="INSTALLFOLDER">
+                <Environment Id="UserPATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="no" />
+                <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="PathComponent" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+                <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+              </Component>
+              <Component Id="StartMenuComponent" Guid="*" Directory="ApplicationProgramsFolder">
+                <Shortcut Id="StartMenuShortcut" Name="Spotify Shuffle" 
+                          Description="CLI tool for managing Spotify playlists"
+                          Target="[INSTALLFOLDER]spotify-shuffle.exe" 
+                          WorkingDirectory="INSTALLFOLDER" 
+                          Icon="AppIcon.exe" IconIndex="0" />
+                <RemoveFolder Id="CleanupProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+              </Component>
+            </ComponentGroup>
+            
+            <Icon Id="AppIcon.exe" SourceFile="spotify-shuffle.exe" />
+          </Product>
+        </Wix>
+        "@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
+        
+        cd packaging\msi
+        candle.exe spotify-shuffle.wxs
+        light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+    
+    # Optional: Sign Windows executable and MSI (if signing certificate is available)
+    - name: Sign Windows binaries (Optional)
+      if: matrix.package_type == 'msi' && env.WINDOWS_CERT_BASE64 != ''
+      env:
+        WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+        WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      run: |
+        echo "Code signing certificate detected, signing binaries..."
+        
+        # Decode certificate from base64
+        $certBytes = [System.Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+        [System.IO.File]::WriteAllBytes("$PWD\cert.p12", $certBytes)
+        
+        # Sign the executable
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign `
+          /f cert.p12 /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+          "build\spotify-shuffle${{ matrix.suffix }}"
+        
+        # Sign the MSI
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe" sign `
+          /f cert.p12 /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+          "build\spotify-shuffle${{ matrix.suffix }}.msi"
+        
+        # Clean up certificate file
+        Remove-Item cert.p12
+        
+        echo "✅ Binaries signed successfully"
+    
+    # Create checksum for MSI package (always, whether signed or not)
+    - name: Create MSI checksum
+      if: matrix.package_type == 'msi'  
+      run: |
+        cd build
+        certutil -hashfile spotify-shuffle${{ matrix.suffix }}.msi SHA256 > spotify-shuffle${{ matrix.suffix }}.msi.sha256
+
+    # Upload build artifacts for the release job
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-assets-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: build/*
+        retention-days: 1
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [test, build, tag, build-packages]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release-assets
+        pattern: release-assets-*
+        merge-multiple: true
+    
+    - name: Display structure of downloaded files
+      run: ls -la release-assets/
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.tag.outputs.version }}
+        name: Release ${{ needs.tag.outputs.version }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: release-assets/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
