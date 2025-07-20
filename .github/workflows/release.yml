@@ -1,0 +1,232 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      tag_name: ${{ steps.get_version.outputs.tag_name }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get version
+      id: get_version
+      run: echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.tag_name }}
+        release_name: Release ${{ steps.get_version.outputs.tag_name }}
+        draft: false
+        prerelease: false
+
+  build-and-package:
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            suffix: "-linux-amd64"
+            package_type: "deb"
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            suffix: "-linux-arm64"
+            package_type: "deb"
+          
+          # macOS builds
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            suffix: "-macos-amd64"
+            package_type: "dmg"
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            suffix: "-macos-arm64"
+            package_type: "dmg"
+          
+          # Windows builds
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            suffix: "-windows-amd64.exe"
+            package_type: "msi"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        mkdir -p build
+        go build -ldflags "-s -w -X main.version=${{ needs.create-release.outputs.tag_name }}" -o build/spotify-shuffle${{ matrix.suffix }} .
+
+    # Linux packaging (DEB)
+    - name: Install packaging tools (Linux)
+      if: matrix.package_type == 'deb'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev
+
+    - name: Create DEB package (Linux)
+      if: matrix.package_type == 'deb'
+      run: |
+        mkdir -p packaging/deb/DEBIAN
+        mkdir -p packaging/deb/usr/local/bin
+        
+        cp build/spotify-shuffle${{ matrix.suffix }} packaging/deb/usr/local/bin/spotify-shuffle
+        chmod +x packaging/deb/usr/local/bin/spotify-shuffle
+        
+        cat > packaging/deb/DEBIAN/control << EOF
+        Package: spotify-shuffle
+        Version: ${{ needs.create-release.outputs.tag_name }}
+        Section: sound
+        Priority: optional
+        Architecture: ${{ matrix.goarch == 'amd64' && 'amd64' || 'arm64' }}
+        Maintainer: Spotify Shuffle <noreply@example.com>
+        Description: CLI tool for managing Spotify playlists
+         A fast, cross-platform CLI tool for managing your Spotify playlists.
+         Features include shuffle, sort, reverse, remove tracks, and create playlists.
+        EOF
+        
+        dpkg-deb --build packaging/deb build/spotify-shuffle${{ matrix.suffix }}.deb
+
+    # macOS packaging (DMG)
+    - name: Create DMG package (macOS)
+      if: matrix.package_type == 'dmg'
+      run: |
+        mkdir -p packaging/dmg
+        cp build/spotify-shuffle${{ matrix.suffix }} packaging/dmg/spotify-shuffle
+        chmod +x packaging/dmg/spotify-shuffle
+        
+        # Create a simple DMG
+        hdiutil create -volname "Spotify Shuffle" -srcfolder packaging/dmg -ov -format UDZO build/spotify-shuffle${{ matrix.suffix }}.dmg
+
+    # Windows packaging (MSI)
+    - name: Install WiX Toolset (Windows)
+      if: matrix.package_type == 'msi'
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip" -OutFile "wix.zip"
+        Expand-Archive -Path "wix.zip" -DestinationPath "wix"
+        echo "$PWD\wix" >> $env:GITHUB_PATH
+
+    - name: Create MSI package (Windows)
+      if: matrix.package_type == 'msi'
+      run: |
+        mkdir packaging\msi
+        copy build\spotify-shuffle${{ matrix.suffix }} packaging\msi\spotify-shuffle.exe
+        
+        # Create WiX source file
+        @'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+          <Product Id="*" Name="Spotify Shuffle" Language="1033" Version="${{ needs.create-release.outputs.tag_name }}" 
+                   Manufacturer="Spotify Shuffle" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+            
+            <Feature Id="ProductFeature" Title="Spotify Shuffle" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+            
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="Spotify Shuffle" />
+              </Directory>
+            </Directory>
+            
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <Component Id="MainExecutable" Guid="*">
+                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
+                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+              </Component>
+            </ComponentGroup>
+          </Product>
+        </Wix>
+        '@ | Out-File -FilePath packaging\msi\spotify-shuffle.wxs -Encoding utf8
+        
+        cd packaging\msi
+        candle.exe spotify-shuffle.wxs
+        light.exe -o "..\..\build\spotify-shuffle${{ matrix.suffix }}.msi" spotify-shuffle.wixobj
+
+    # Upload binary
+    - name: Upload binary to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: build/spotify-shuffle${{ matrix.suffix }}
+        asset_name: spotify-shuffle${{ matrix.suffix }}
+        asset_content_type: application/octet-stream
+
+    # Upload packages
+    - name: Upload DEB package
+      if: matrix.package_type == 'deb'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: build/spotify-shuffle${{ matrix.suffix }}.deb
+        asset_name: spotify-shuffle${{ matrix.suffix }}.deb
+        asset_content_type: application/vnd.debian.binary-package
+
+    - name: Upload DMG package
+      if: matrix.package_type == 'dmg'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: build/spotify-shuffle${{ matrix.suffix }}.dmg
+        asset_name: spotify-shuffle${{ matrix.suffix }}.dmg
+        asset_content_type: application/x-apple-diskimage
+
+    - name: Upload MSI package
+      if: matrix.package_type == 'msi'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: build/spotify-shuffle${{ matrix.suffix }}.msi
+        asset_name: spotify-shuffle${{ matrix.suffix }}.msi
+        asset_content_type: application/x-msi
