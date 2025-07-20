@@ -395,18 +395,21 @@ On first run, the app will:
 | **🔄 Workflow** | Multi-playlist sessions | Single operation per command |
 | **📚 Learning Curve** | None - guided menus | Requires learning command syntax |
 
-## Advantages over Python Version
+## Why Go?
 
-| Feature | Go Version | Python Version |
-|---------|------------|----------------|
-| **Binary Size** | ~9MB | ~80MB (with PyInstaller) |
-| **Startup Time** | Instant | 2-3 seconds |
-| **Dependencies** | None | Python + venv |
-| **Distribution** | Single file | Multiple files |
-| **Performance** | Very fast | Moderate |
-| **Memory Usage** | Low | Higher |
-| **Interactive Mode** | ✅ Full-featured | ❌ Not available |
-| **Cross-Platform** | ✅ All platforms | ✅ Limited packaging |
+This project is built in Go for optimal performance and distribution:
+
+| Feature | Benefits |
+|---------|----------|
+| **Binary Size** | ~9MB single executable |
+| **Startup Time** | Instant execution |
+| **Dependencies** | Zero runtime dependencies |
+| **Distribution** | Single file deployment |
+| **Performance** | Very fast execution |
+| **Memory Usage** | Low memory footprint |
+| **Interactive Mode** | Full-featured terminal UI |
+| **Cross-Platform** | Native builds for all platforms |
+| **Packaging** | Professional installers (DMG, MSI, DEB) |
 
 ## Release & Distribution
 
