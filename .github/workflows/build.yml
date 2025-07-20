@@ -387,16 +387,20 @@ jobs:
             </Directory>
             
             <ComponentGroup Id="ProductComponents">
-              <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
-                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" />
+              <Component Id="MainExecutableFile" Guid="12345678-1234-1234-1234-123456789001" Directory="INSTALLFOLDER">
+                <File Id="SpotifyShuffleEXE" Source="spotify-shuffle.exe" KeyPath="yes" />
+              </Component>
+              <Component Id="MainExecutableReg" Guid="12345678-1234-1234-1234-123456789002" Directory="INSTALLFOLDER">
                 <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="MainExecutable" Type="string" Value="[INSTALLFOLDER]spotify-shuffle.exe" KeyPath="yes" />
                 <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
               </Component>
-              <Component Id="BatchWrapper" Guid="*" Directory="INSTALLFOLDER">
-                <File Id="SpotifyShuffleBAT" Source="spotify-shuffle.bat" />
+              <Component Id="BatchWrapperFile" Guid="12345678-1234-1234-1234-123456789003" Directory="INSTALLFOLDER">
+                <File Id="SpotifyShuffleBAT" Source="spotify-shuffle.bat" KeyPath="yes" />
+              </Component>
+              <Component Id="BatchWrapperReg" Guid="12345678-1234-1234-1234-123456789004" Directory="INSTALLFOLDER">
                 <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="BatchWrapper" Type="string" Value="[INSTALLFOLDER]spotify-shuffle.bat" KeyPath="yes" />
               </Component>
-              <Component Id="PathComponent" Guid="*" Directory="INSTALLFOLDER">
+              <Component Id="PathComponent" Guid="12345678-1234-1234-1234-123456789005" Directory="INSTALLFOLDER">
                 <!-- User PATH - more reliable for per-user installations -->
                 <Environment Id="UserPATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="no" />
                 <RegistryValue Root="HKCU" Key="Software\SpotifyShuffleGo" Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
