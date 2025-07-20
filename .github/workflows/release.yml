@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,7 +22,12 @@ jobs:
     steps:
     - name: Get version
       id: get_version
-      run: echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "tag_name=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+        else
+          echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
 
   build-and-package:
     needs: get-version

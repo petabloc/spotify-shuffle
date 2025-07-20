@@ -121,8 +121,17 @@ jobs:
         echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
     
     - name: Create and push tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git tag ${{ steps.version.outputs.version }}
         git push origin ${{ steps.version.outputs.version }}
+    
+    - name: Trigger release workflow
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Triggering release workflow for tag ${{ steps.version.outputs.version }}"
+        gh workflow run release.yml -f tag=${{ steps.version.outputs.version }} || echo "Release workflow dispatch failed - user will need to create release manually"
