@@ -115,6 +115,10 @@ func selectPlaylistManually(reader *bufio.Reader) (*spotify.SimplePlaylist, erro
 }
 
 func selectFromUserPlaylists(ctx context.Context, client *spotify.Client, reader *bufio.Reader) (*spotify.SimplePlaylist, error) {
+	return selectFromUserPlaylistsWithOffset(ctx, client, reader, 0)
+}
+
+func selectFromUserPlaylistsWithOffset(ctx context.Context, client *spotify.Client, reader *bufio.Reader, offset int) (*spotify.SimplePlaylist, error) {
 	fmt.Println("🔍 Loading your playlists...")
 
 	// Get current user
@@ -123,44 +127,84 @@ func selectFromUserPlaylists(ctx context.Context, client *spotify.Client, reader
 		return nil, fmt.Errorf("failed to get current user: %w", err)
 	}
 
-	// Get user's playlists
-	playlists, err := client.GetPlaylistsForUser(ctx, user.ID, spotify.Limit(50))
+	// Get user's playlists with a higher limit to support pagination
+	playlists, err := client.GetPlaylistsForUser(ctx, user.ID, spotify.Limit(50), spotify.Offset(offset))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get playlists: %w", err)
 	}
 
 	if len(playlists.Playlists) == 0 {
-		fmt.Println("ℹ️  No playlists found")
-		return selectPlaylistManually(reader)
+		if offset == 0 {
+			fmt.Println("ℹ️  No playlists found")
+			return selectPlaylistManually(reader)
+		} else {
+			fmt.Println("ℹ️  No more playlists found")
+			return selectFromUserPlaylistsWithOffset(ctx, client, reader, 0) // Go back to first page
+		}
 	}
 
-	fmt.Printf("\n👤 Found %d playlists for %s:\n", len(playlists.Playlists), user.DisplayName)
+	totalPlaylists := playlists.Total
+	fmt.Printf("\n👤 Found %d playlists for %s:\n", totalPlaylists, user.DisplayName)
 
 	// Show playlists
-	maxShow := 20
-	for i, playlist := range playlists.Playlists {
-		if i >= maxShow {
-			fmt.Printf("... and %d more (showing first %d)\n", len(playlists.Playlists)-maxShow, maxShow)
-			break
-		}
-		fmt.Printf("%2d. %s (%d tracks)\n", i+1, playlist.Name, playlist.Tracks.Total)
+	pageSize := 20
+	endIndex := min(len(playlists.Playlists), pageSize)
+	
+	for i := 0; i < endIndex; i++ {
+		playlist := playlists.Playlists[i]
+		fmt.Printf("%2d. %s (%d tracks)\n", offset+i+1, playlist.Name, playlist.Tracks.Total)
 	}
 
-	fmt.Printf("\nChoose playlist (1-%d) or press Enter to enter manually: ", min(len(playlists.Playlists), maxShow))
+	// Build options
+	options := []string{}
+	if endIndex > 0 {
+		options = append(options, fmt.Sprintf("1-%d", offset+endIndex))
+	}
+	
+	hasMore := offset+len(playlists.Playlists) < totalPlaylists
+	if hasMore {
+		options = append(options, "n (next)")
+	}
+	
+	if offset > 0 {
+		options = append(options, "p (previous)")
+	}
+	
+	options = append(options, "Enter (manual entry)")
+
+	fmt.Printf("\n📋 Showing %d-%d of %d playlists\n", offset+1, offset+endIndex, totalPlaylists)
+	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
+	
 	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
+	input = strings.TrimSpace(strings.ToLower(input))
 
 	if input == "" {
 		return selectPlaylistManually(reader)
 	}
 
-	num, err := strconv.Atoi(input)
-	if err != nil || num < 1 || num > min(len(playlists.Playlists), maxShow) {
-		fmt.Printf("❌ Invalid choice. Please enter a number between 1 and %d.\n", min(len(playlists.Playlists), maxShow))
-		return selectFromUserPlaylists(ctx, client, reader)
+	// Handle navigation
+	if input == "n" && hasMore {
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, offset+pageSize)
+	}
+	
+	if input == "p" && offset > 0 {
+		newOffset := offset - pageSize
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, newOffset)
 	}
 
-	selected := playlists.Playlists[num-1]
+	// Handle playlist selection
+	num, err := strconv.Atoi(input)
+	if err != nil || num < offset+1 || num > offset+endIndex {
+		fmt.Printf("❌ Invalid choice. Please enter a number between %d and %d, or use navigation options.\n", offset+1, offset+endIndex)
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, offset)
+	}
+
+	// Convert to 0-based index within current page
+	localIndex := num - offset - 1
+	selected := playlists.Playlists[localIndex]
 	return &selected, nil
 }
 
@@ -373,7 +417,14 @@ func interactiveRemoveByAge(ctx context.Context, manager *playlist.Manager, play
 }
 
 func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID, reader *bufio.Reader) error {
-	fmt.Println("👨‍🎤 Getting artists from playlist...")
+	return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, 0)
+}
+
+func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID, reader *bufio.Reader, offset int) error {
+	if offset == 0 {
+		fmt.Println("👨‍🎤 Getting artists from playlist...")
+	}
+	
 	artists, err := manager.GetUniqueArtists(ctx, playlistID)
 	if err != nil {
 		return fmt.Errorf("failed to get artists: %w", err)
@@ -384,17 +435,41 @@ func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, p
 		return nil
 	}
 
-	fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
-	maxShow := 20
-	for i, artist := range artists {
-		if i >= maxShow {
-			fmt.Printf("... and %d more\n", len(artists)-maxShow)
-			break
-		}
-		fmt.Printf("%2d. %s\n", i+1, artist)
+	pageSize := 20
+	startIndex := offset
+	endIndex := min(offset+pageSize, len(artists))
+
+	if startIndex >= len(artists) {
+		fmt.Println("ℹ️  No more artists found")
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, 0) // Go back to first page
 	}
 
-	fmt.Printf("\nEnter artist number (1-%d) or name: ", min(len(artists), maxShow))
+	fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
+	
+	for i := startIndex; i < endIndex; i++ {
+		fmt.Printf("%2d. %s\n", i+1, artists[i])
+	}
+
+	// Build options
+	options := []string{}
+	if endIndex > startIndex {
+		options = append(options, fmt.Sprintf("1-%d", endIndex))
+	}
+	
+	hasMore := endIndex < len(artists)
+	if hasMore {
+		options = append(options, "n (next)")
+	}
+	
+	if offset > 0 {
+		options = append(options, "p (previous)")
+	}
+	
+	options = append(options, "name (enter artist name)", "Enter (cancel)")
+
+	fmt.Printf("\n📋 Showing %d-%d of %d artists\n", startIndex+1, endIndex, len(artists))
+	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
+	
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -403,13 +478,27 @@ func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, p
 		return nil
 	}
 
+	// Handle navigation
+	inputLower := strings.ToLower(input)
+	if inputLower == "n" && hasMore {
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, offset+pageSize)
+	}
+	
+	if inputLower == "p" && offset > 0 {
+		newOffset := offset - pageSize
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, newOffset)
+	}
+
 	var artistName string
 	if num, err := strconv.Atoi(input); err == nil {
-		if num >= 1 && num <= min(len(artists), maxShow) {
+		if num >= 1 && num <= len(artists) {
 			artistName = artists[num-1]
 		} else {
 			fmt.Printf("❌ Invalid artist number: %d\n", num)
-			return nil
+			return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, offset)
 		}
 	} else {
 		artistName = input
