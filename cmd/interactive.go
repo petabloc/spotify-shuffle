@@ -149,7 +149,7 @@ func selectFromUserPlaylistsWithOffset(ctx context.Context, client *spotify.Clie
 	// Show playlists
 	pageSize := 20
 	endIndex := min(len(playlists.Playlists), pageSize)
-	
+
 	for i := 0; i < endIndex; i++ {
 		playlist := playlists.Playlists[i]
 		fmt.Printf("%2d. %s (%d tracks)\n", offset+i+1, playlist.Name, playlist.Tracks.Total)
@@ -160,21 +160,21 @@ func selectFromUserPlaylistsWithOffset(ctx context.Context, client *spotify.Clie
 	if endIndex > 0 {
 		options = append(options, fmt.Sprintf("1-%d", offset+endIndex))
 	}
-	
+
 	hasMore := offset+len(playlists.Playlists) < totalPlaylists
 	if hasMore {
 		options = append(options, "n (next)")
 	}
-	
+
 	if offset > 0 {
 		options = append(options, "p (previous)")
 	}
-	
+
 	options = append(options, "Enter (manual entry)", "x (exit)")
 
 	fmt.Printf("\n📋 Showing %d-%d of %d playlists\n", offset+1, offset+endIndex, totalPlaylists)
 	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
-	
+
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(strings.ToLower(input))
 
@@ -193,7 +193,7 @@ func selectFromUserPlaylistsWithOffset(ctx context.Context, client *spotify.Clie
 	if input == "n" && hasMore {
 		return selectFromUserPlaylistsWithOffset(ctx, client, reader, offset+pageSize)
 	}
-	
+
 	if input == "p" && offset > 0 {
 		newOffset := offset - pageSize
 		if newOffset < 0 {
@@ -450,7 +450,7 @@ func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.
 	if offset == 0 {
 		fmt.Println("👨‍🎤 Getting artists from playlist...")
 	}
-	
+
 	artists, err := manager.GetUniqueArtists(ctx, playlistID)
 	if err != nil {
 		return fmt.Errorf("failed to get artists: %w", err)
@@ -471,7 +471,7 @@ func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.
 	}
 
 	fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
-	
+
 	for i := startIndex; i < endIndex; i++ {
 		fmt.Printf("%2d. %s\n", i+1, artists[i])
 	}
@@ -481,21 +481,21 @@ func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.
 	if endIndex > startIndex {
 		options = append(options, fmt.Sprintf("1-%d", endIndex))
 	}
-	
+
 	hasMore := endIndex < len(artists)
 	if hasMore {
 		options = append(options, "n (next)")
 	}
-	
+
 	if offset > 0 {
 		options = append(options, "p (previous)")
 	}
-	
+
 	options = append(options, "name (enter artist name)", "Enter (cancel)", "x (exit)")
 
 	fmt.Printf("\n📋 Showing %d-%d of %d artists\n", startIndex+1, endIndex, len(artists))
 	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
-	
+
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -506,18 +506,18 @@ func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.
 
 	// Handle navigation
 	inputLower := strings.ToLower(input)
-	
+
 	// Handle exit
 	if inputLower == "x" {
 		fmt.Println("👋 Goodbye!")
 		os.Exit(0)
 		return nil // Never reached but satisfies compiler
 	}
-	
+
 	if inputLower == "n" && hasMore {
 		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, offset+pageSize)
 	}
-	
+
 	if inputLower == "p" && offset > 0 {
 		newOffset := offset - pageSize
 		if newOffset < 0 {
