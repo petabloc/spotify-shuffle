@@ -115,6 +115,10 @@ func selectPlaylistManually(reader *bufio.Reader) (*spotify.SimplePlaylist, erro
 }
 
 func selectFromUserPlaylists(ctx context.Context, client *spotify.Client, reader *bufio.Reader) (*spotify.SimplePlaylist, error) {
+	return selectFromUserPlaylistsWithOffset(ctx, client, reader, 0)
+}
+
+func selectFromUserPlaylistsWithOffset(ctx context.Context, client *spotify.Client, reader *bufio.Reader, offset int) (*spotify.SimplePlaylist, error) {
 	fmt.Println("🔍 Loading your playlists...")
 
 	// Get current user
@@ -123,44 +127,91 @@ func selectFromUserPlaylists(ctx context.Context, client *spotify.Client, reader
 		return nil, fmt.Errorf("failed to get current user: %w", err)
 	}
 
-	// Get user's playlists
-	playlists, err := client.GetPlaylistsForUser(ctx, user.ID, spotify.Limit(50))
+	// Get user's playlists with a higher limit to support pagination
+	playlists, err := client.GetPlaylistsForUser(ctx, user.ID, spotify.Limit(50), spotify.Offset(offset))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get playlists: %w", err)
 	}
 
 	if len(playlists.Playlists) == 0 {
-		fmt.Println("ℹ️  No playlists found")
-		return selectPlaylistManually(reader)
+		if offset == 0 {
+			fmt.Println("ℹ️  No playlists found")
+			return selectPlaylistManually(reader)
+		} else {
+			fmt.Println("ℹ️  No more playlists found")
+			return selectFromUserPlaylistsWithOffset(ctx, client, reader, 0) // Go back to first page
+		}
 	}
 
-	fmt.Printf("\n👤 Found %d playlists for %s:\n", len(playlists.Playlists), user.DisplayName)
+	totalPlaylists := playlists.Total
+	fmt.Printf("\n👤 Found %d playlists for %s:\n", totalPlaylists, user.DisplayName)
 
 	// Show playlists
-	maxShow := 20
-	for i, playlist := range playlists.Playlists {
-		if i >= maxShow {
-			fmt.Printf("... and %d more (showing first %d)\n", len(playlists.Playlists)-maxShow, maxShow)
-			break
-		}
-		fmt.Printf("%2d. %s (%d tracks)\n", i+1, playlist.Name, playlist.Tracks.Total)
+	pageSize := 20
+	endIndex := min(len(playlists.Playlists), pageSize)
+
+	for i := 0; i < endIndex; i++ {
+		playlist := playlists.Playlists[i]
+		fmt.Printf("%2d. %s (%d tracks)\n", offset+i+1, playlist.Name, playlist.Tracks.Total)
 	}
 
-	fmt.Printf("\nChoose playlist (1-%d) or press Enter to enter manually: ", min(len(playlists.Playlists), maxShow))
+	// Build options
+	options := []string{}
+	if endIndex > 0 {
+		options = append(options, fmt.Sprintf("1-%d", offset+endIndex))
+	}
+
+	hasMore := offset+len(playlists.Playlists) < totalPlaylists
+	if hasMore {
+		options = append(options, "n (next)")
+	}
+
+	if offset > 0 {
+		options = append(options, "p (previous)")
+	}
+
+	options = append(options, "Enter (manual entry)", "x (exit)")
+
+	fmt.Printf("\n📋 Showing %d-%d of %d playlists\n", offset+1, offset+endIndex, totalPlaylists)
+	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
+
 	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
+	input = strings.TrimSpace(strings.ToLower(input))
 
 	if input == "" {
 		return selectPlaylistManually(reader)
 	}
 
-	num, err := strconv.Atoi(input)
-	if err != nil || num < 1 || num > min(len(playlists.Playlists), maxShow) {
-		fmt.Printf("❌ Invalid choice. Please enter a number between 1 and %d.\n", min(len(playlists.Playlists), maxShow))
-		return selectFromUserPlaylists(ctx, client, reader)
+	// Handle exit
+	if input == "x" {
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil, nil // Never reached but satisfies compiler
 	}
 
-	selected := playlists.Playlists[num-1]
+	// Handle navigation
+	if input == "n" && hasMore {
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, offset+pageSize)
+	}
+
+	if input == "p" && offset > 0 {
+		newOffset := offset - pageSize
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, newOffset)
+	}
+
+	// Handle playlist selection
+	num, err := strconv.Atoi(input)
+	if err != nil || num < offset+1 || num > offset+endIndex {
+		fmt.Printf("❌ Invalid choice. Please enter a number between %d and %d, or use navigation options.\n", offset+1, offset+endIndex)
+		return selectFromUserPlaylistsWithOffset(ctx, client, reader, offset)
+	}
+
+	// Convert to 0-based index within current page
+	localIndex := num - offset - 1
+	selected := playlists.Playlists[localIndex]
 	return &selected, nil
 }
 
@@ -177,8 +228,9 @@ func showPlaylistMenu(ctx context.Context, manager *playlist.Manager, playlist s
 		fmt.Println("5. ➕ Create new playlist")
 		fmt.Println("6. ℹ️  Show playlist info")
 		fmt.Println("7. 🔙 Go back to playlist selection")
+		fmt.Println("8. 🚪 Exit")
 
-		fmt.Print("\nChoose operation (1-7): ")
+		fmt.Print("\nChoose operation (1-8): ")
 		choice, _ := reader.ReadString('\n')
 		choice = strings.TrimSpace(choice)
 
@@ -209,8 +261,11 @@ func showPlaylistMenu(ctx context.Context, manager *playlist.Manager, playlist s
 			}
 		case "7":
 			return nil
+		case "8":
+			fmt.Println("👋 Goodbye!")
+			os.Exit(0)
 		default:
-			fmt.Println("❌ Invalid choice. Please enter a number between 1 and 7.")
+			fmt.Println("❌ Invalid choice. Please enter a number between 1 and 8.")
 		}
 	}
 }
@@ -236,8 +291,9 @@ func interactiveSort(ctx context.Context, manager *playlist.Manager, playlistID 
 	fmt.Println("1. Sort by title (A-Z)")
 	fmt.Println("2. Sort by artist (A-Z)")
 	fmt.Println("3. Cancel")
+	fmt.Println("4. 🚪 Exit")
 
-	fmt.Print("Choose sort method (1-3): ")
+	fmt.Print("Choose sort method (1-4): ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
@@ -250,6 +306,10 @@ func interactiveSort(ctx context.Context, manager *playlist.Manager, playlistID 
 	case "3":
 		fmt.Println("❌ Operation cancelled")
 		return nil
+	case "4":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
 	default:
 		fmt.Println("❌ Invalid choice")
 		return nil
@@ -290,8 +350,9 @@ func interactiveRemove(ctx context.Context, manager *playlist.Manager, playlistI
 	fmt.Println("1. Remove tracks by age")
 	fmt.Println("2. Remove tracks by artist")
 	fmt.Println("3. Cancel")
+	fmt.Println("4. 🚪 Exit")
 
-	fmt.Print("Choose remove method (1-3): ")
+	fmt.Print("Choose remove method (1-4): ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
@@ -303,6 +364,10 @@ func interactiveRemove(ctx context.Context, manager *playlist.Manager, playlistI
 	case "3":
 		fmt.Println("❌ Operation cancelled")
 		return nil
+	case "4":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
 	default:
 		fmt.Println("❌ Invalid choice")
 		return nil
@@ -318,8 +383,9 @@ func interactiveRemoveByAge(ctx context.Context, manager *playlist.Manager, play
 	fmt.Println("5. 3 years")
 	fmt.Println("6. Custom")
 	fmt.Println("7. Cancel")
+	fmt.Println("8. 🚪 Exit")
 
-	fmt.Print("Choose age threshold (1-7): ")
+	fmt.Print("Choose age threshold (1-8): ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
@@ -348,6 +414,10 @@ func interactiveRemoveByAge(ctx context.Context, manager *playlist.Manager, play
 	case "7":
 		fmt.Println("❌ Operation cancelled")
 		return nil
+	case "8":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
 	default:
 		fmt.Println("❌ Invalid choice")
 		return nil
@@ -373,7 +443,14 @@ func interactiveRemoveByAge(ctx context.Context, manager *playlist.Manager, play
 }
 
 func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID, reader *bufio.Reader) error {
-	fmt.Println("👨‍🎤 Getting artists from playlist...")
+	return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, 0)
+}
+
+func interactiveRemoveByArtistWithOffset(ctx context.Context, manager *playlist.Manager, playlistID spotify.ID, reader *bufio.Reader, offset int) error {
+	if offset == 0 {
+		fmt.Println("👨‍🎤 Getting artists from playlist...")
+	}
+
 	artists, err := manager.GetUniqueArtists(ctx, playlistID)
 	if err != nil {
 		return fmt.Errorf("failed to get artists: %w", err)
@@ -384,17 +461,41 @@ func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, p
 		return nil
 	}
 
-	fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
-	maxShow := 20
-	for i, artist := range artists {
-		if i >= maxShow {
-			fmt.Printf("... and %d more\n", len(artists)-maxShow)
-			break
-		}
-		fmt.Printf("%2d. %s\n", i+1, artist)
+	pageSize := 20
+	startIndex := offset
+	endIndex := min(offset+pageSize, len(artists))
+
+	if startIndex >= len(artists) {
+		fmt.Println("ℹ️  No more artists found")
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, 0) // Go back to first page
 	}
 
-	fmt.Printf("\nEnter artist number (1-%d) or name: ", min(len(artists), maxShow))
+	fmt.Printf("\n👨‍🎤 Found %d unique artists:\n", len(artists))
+
+	for i := startIndex; i < endIndex; i++ {
+		fmt.Printf("%2d. %s\n", i+1, artists[i])
+	}
+
+	// Build options
+	options := []string{}
+	if endIndex > startIndex {
+		options = append(options, fmt.Sprintf("1-%d", endIndex))
+	}
+
+	hasMore := endIndex < len(artists)
+	if hasMore {
+		options = append(options, "n (next)")
+	}
+
+	if offset > 0 {
+		options = append(options, "p (previous)")
+	}
+
+	options = append(options, "name (enter artist name)", "Enter (cancel)", "x (exit)")
+
+	fmt.Printf("\n📋 Showing %d-%d of %d artists\n", startIndex+1, endIndex, len(artists))
+	fmt.Printf("Choose: %s: ", strings.Join(options, ", "))
+
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -403,13 +504,35 @@ func interactiveRemoveByArtist(ctx context.Context, manager *playlist.Manager, p
 		return nil
 	}
 
+	// Handle navigation
+	inputLower := strings.ToLower(input)
+
+	// Handle exit
+	if inputLower == "x" {
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
+	}
+
+	if inputLower == "n" && hasMore {
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, offset+pageSize)
+	}
+
+	if inputLower == "p" && offset > 0 {
+		newOffset := offset - pageSize
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, newOffset)
+	}
+
 	var artistName string
 	if num, err := strconv.Atoi(input); err == nil {
-		if num >= 1 && num <= min(len(artists), maxShow) {
+		if num >= 1 && num <= len(artists) {
 			artistName = artists[num-1]
 		} else {
 			fmt.Printf("❌ Invalid artist number: %d\n", num)
-			return nil
+			return interactiveRemoveByArtistWithOffset(ctx, manager, playlistID, reader, offset)
 		}
 	} else {
 		artistName = input
@@ -440,8 +563,9 @@ func interactiveCreate(ctx context.Context, manager *playlist.Manager, playlistI
 	fmt.Println("2. Chunk playlists (split large playlist)")
 	fmt.Println("3. Genre playlist")
 	fmt.Println("4. Cancel")
+	fmt.Println("5. 🚪 Exit")
 
-	fmt.Print("Choose creation method (1-4): ")
+	fmt.Print("Choose creation method (1-5): ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
@@ -455,6 +579,10 @@ func interactiveCreate(ctx context.Context, manager *playlist.Manager, playlistI
 	case "4":
 		fmt.Println("❌ Operation cancelled")
 		return nil
+	case "5":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
 	default:
 		fmt.Println("❌ Invalid choice")
 		return nil
@@ -468,8 +596,9 @@ func interactiveCreateFresh(ctx context.Context, manager *playlist.Manager, play
 	fmt.Println("3. Last 180 days")
 	fmt.Println("4. Custom")
 	fmt.Println("5. Cancel")
+	fmt.Println("6. 🚪 Exit")
 
-	fmt.Print("Choose time range (1-5): ")
+	fmt.Print("Choose time range (1-6): ")
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
 
@@ -494,6 +623,10 @@ func interactiveCreateFresh(ctx context.Context, manager *playlist.Manager, play
 	case "5":
 		fmt.Println("❌ Operation cancelled")
 		return nil
+	case "6":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+		return nil // Never reached but satisfies compiler
 	default:
 		fmt.Println("❌ Invalid choice")
 		return nil

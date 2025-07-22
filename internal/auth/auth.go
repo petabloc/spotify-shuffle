@@ -70,6 +70,13 @@ func (sa *SpotifyAuth) GetClient(ctx context.Context) (*spotify.Client, error) {
 
 // authenticate performs the OAuth flow
 func (sa *SpotifyAuth) authenticate(ctx context.Context) (*spotify.Client, error) {
+	// Check if context is already cancelled/timed out
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	// Start local server to handle callback
 	ch := make(chan *oauth2.Token)
 	errCh := make(chan error)
@@ -110,21 +117,23 @@ func (sa *SpotifyAuth) authenticate(ctx context.Context) (*spotify.Client, error
 	fmt.Printf("\n🔐 Please open this URL in your browser to authenticate:\n%s\n\n", url)
 	fmt.Println("Waiting for authentication...")
 
-	// Wait for token or timeout
+	// Wait for token, error, or context timeout
 	var token *oauth2.Token
 	select {
 	case token = <-ch:
 		fmt.Println("✅ Authentication successful!")
 	case err := <-errCh:
 		return nil, fmt.Errorf("authentication error: %w", err)
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-time.After(5 * time.Minute):
 		return nil, fmt.Errorf("authentication timeout")
 	}
 
 	// Shutdown server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	server.Shutdown(ctx)
+	server.Shutdown(shutdownCtx)
 
 	// Save token
 	if err := sa.saveToken(token); err != nil {

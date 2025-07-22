@@ -43,20 +43,17 @@ func TestNewSpotifyAuth(t *testing.T) {
 }
 
 func TestSpotifyAuth_GetClient_NoSavedToken(t *testing.T) {
-	// Skip this test in CI/CD environments where we can't open browsers
-	if testing.Short() {
-		t.Skip("Skipping authentication test in short mode")
-	}
-
+	// This test verifies that GetClient fails when no token is saved
+	// We use a very short timeout to avoid actually starting the server
 	auth := NewSpotifyAuth("test_id", "test_secret", "http://127.0.0.1:8080/callback")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 
-	// This should fail because we don't have a saved token and can't authenticate
+	// This should fail quickly due to timeout, avoiding the server startup
 	_, err := auth.GetClient(ctx)
 	if err == nil {
-		t.Error("Expected error when no saved token and no manual authentication")
+		t.Error("Expected error when no saved token and context times out quickly")
 	}
 }
 
